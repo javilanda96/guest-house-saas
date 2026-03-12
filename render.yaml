@@ -1,5 +1,9 @@
-# Render Blueprint — API + panel admin del Booking Bot.
-# Solo despliega la API (FastAPI + panel HTML). El bot de Telegram corre local.
+# Render Blueprint — Booking Bot (API + panel + bot Telegram).
+#
+# Un unico servicio web que ejecuta:
+#   - bot.py en background (polling Telegram)
+#   - uvicorn en foreground (API + panel admin)
+# Ambos comparten el mismo data/bot.db via SQLite.
 #
 # Uso: Render detecta este archivo automaticamente al conectar el repo.
 # Tambien se puede importar manualmente desde https://render.com/blueprints
@@ -8,8 +12,8 @@ services:
   - type: web
     name: booking-bot-api
     runtime: python
-    buildCommand: pip install -r requirements-api.txt
-    startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
+    buildCommand: pip install -r requirements.txt
+    startCommand: bash start.sh
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
