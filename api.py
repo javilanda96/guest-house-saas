@@ -33,6 +33,7 @@ from services.database import (
     VALID_CONV_STATUSES,
     VALID_CONV_OWNERS,
 )
+from seed_demo import seed_if_empty
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
@@ -48,8 +49,9 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
 @app.on_event("startup")
 def on_startup() -> None:
-    """Asegura que la DB y las tablas existen al arrancar la API."""
-    init_db()
+    """Asegura que la DB y las tablas existen al arrancar la API.
+    Si la DB esta vacia, inserta datos demo para que el panel no aparezca vacio."""
+    seed_if_empty()  # Llama init_db() internamente
 
 
 # =========================================================
