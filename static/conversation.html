@@ -2,12 +2,13 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Detalle - Booking Bot</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <nav>
-    <a href="/">Conversaciones</a>
+    <a href="/">Inbox</a>
     <a href="/static/alerts.html">Alertas</a>
   </nav>
 
@@ -31,7 +32,7 @@
         renderHeader(data);
         renderMessages(data.messages);
       } catch (e) {
-        document.getElementById("content").innerHTML = `<p class="error">${e.message}</p>`;
+        document.getElementById("content").innerHTML = `<p class="error">${esc(e.message)}</p>`;
       }
     }
 
@@ -69,15 +70,58 @@
             &middot; ${fmtDate(m.created_at)}
           </div>
         </div>`;
+
+        // Render inline alerts attached to this interaction
+        if (m.alerts && m.alerts.length) {
+          for (const a of m.alerts) {
+            const resolved = a.resolved;
+            const statusBadge = resolved
+              ? '<span class="badge badge-green">resuelta</span>'
+              : '<span class="badge badge-red">pendiente</span>';
+            const resolveBtn = resolved
+              ? ""
+              : `<button class="btn-success" onclick="resolveAlert(${a.id}, this)">Resolver</button>`;
+
+            html += `<div class="alert-inline ${resolved ? 'alert-resolved' : ''}">
+              <div class="alert-inline-header">
+                <span class="alert-inline-icon">&#9888;</span>
+                <span class="alert-inline-title">Alerta</span>
+                ${statusBadge}
+                ${a.urgent ? '<span class="badge badge-red">urgente</span>' : ""}
+                <span class="alert-inline-time">${fmtDate(a.created_at)}</span>
+              </div>
+              <div class="alert-inline-field">
+                <span class="alert-inline-label">Motivo</span>
+                <span>${esc(a.reason)}</span>
+              </div>
+              ${a.translated_text ? `<div class="alert-inline-field">
+                <span class="alert-inline-label">Traduccion</span>
+                <span>${esc(a.translated_text)}</span>
+              </div>` : ""}
+              ${a.draft_text ? `<div class="alert-inline-field">
+                <span class="alert-inline-label">Borrador sugerido</span>
+                <div class="alert-inline-draft">${esc(a.draft_text)}</div>
+              </div>` : ""}
+              ${resolveBtn ? `<div class="alert-inline-actions">${resolveBtn}</div>` : ""}
+            </div>`;
+          }
+        }
       }
       html += "</div>";
       document.getElementById("content").innerHTML = html;
     }
 
-    function esc(s) {
-      const d = document.createElement("div");
-      d.textContent = s;
-      return d.innerHTML;
+    async function resolveAlert(alertId, btn) {
+      btn.disabled = true;
+      btn.textContent = "Resolviendo...";
+      try {
+        await API.patch(`/api/alerts/${alertId}/resolve`);
+        load(); // Reload to reflect updated state
+      } catch (e) {
+        alert("Error: " + e.message);
+        btn.disabled = false;
+        btn.textContent = "Resolver";
+      }
     }
 
     load();

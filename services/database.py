@@ -215,7 +215,13 @@ def get_conversations(*, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
             SELECT
                 c.*,
                 COUNT(i.id) AS message_count,
-                MAX(i.created_at) AS last_message_at
+                MAX(i.created_at) AS last_message_at,
+                (SELECT user_message FROM interactions
+                 WHERE conversation_id = c.id
+                 ORDER BY created_at DESC LIMIT 1) AS last_user_message,
+                (SELECT COUNT(*) FROM alerts
+                 WHERE conversation_id = c.id
+                   AND resolved_at IS NULL) AS pending_alerts
             FROM conversations c
             LEFT JOIN interactions i ON i.conversation_id = c.id
             GROUP BY c.id
@@ -271,10 +277,34 @@ def get_conversation_interactions(
             (conversation_id,),
         ).fetchone()["cnt"]
 
+        # Fetch alerts for this conversation, grouped by interaction_id
+        alert_rows = conn.execute(
+            """
+            SELECT * FROM alerts
+            WHERE conversation_id = ?
+            ORDER BY created_at ASC
+            """,
+            (conversation_id,),
+        ).fetchall()
+
+    # Build lookup: interaction_id → [alert, ...]
+    alerts_by_interaction: Dict[int, list] = {}
+    for a in alert_rows:
+        ad = dict(a)
+        ad["resolved"] = ad["resolved_at"] is not None
+        alerts_by_interaction.setdefault(ad["interaction_id"], []).append(ad)
+
+    # Attach alerts to each interaction
+    messages = []
+    for r in rows:
+        m = dict(r)
+        m["alerts"] = alerts_by_interaction.get(m["id"], [])
+        messages.append(m)
+
     return {
         "conversation_id": conv["id"],
         "telegram_chat_id": conv["telegram_chat_id"],
-        "messages": _rows_to_list(rows),
+        "messages": messages,
         "total": total,
         "limit": limit,
         "offset": offset,

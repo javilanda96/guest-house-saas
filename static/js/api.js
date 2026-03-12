@@ -47,3 +47,43 @@ function statusClass(status) {
   };
   return map[status] || "badge-gray";
 }
+
+/** Devuelve tiempo relativo legible: "2 min ago", "3h ago", "5d ago" */
+function timeAgo(iso) {
+  if (!iso) return "";
+  const secs = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
+  if (secs < 60)   return "ahora";
+  if (secs < 3600) return Math.floor(secs / 60) + " min";
+  if (secs < 86400) return Math.floor(secs / 3600) + "h";
+  return Math.floor(secs / 86400) + "d";
+}
+
+/** Formatea property_id a nombre legible: "apt_centro_01" → "Apt Centro 01" */
+function fmtProperty(id) {
+  if (!id) return "";
+  return id.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+/** Etiqueta legible para status */
+function statusLabel(status) {
+  const map = {
+    open: "Activa",
+    bot_resolved: "Resuelta",
+    host_pending: "Pendiente",
+    urgent: "Urgente",
+  };
+  return map[status] || status;
+}
+
+/** Trunca texto a max caracteres */
+function truncate(s, max) {
+  if (!s) return "";
+  return s.length > max ? s.slice(0, max) + "…" : s;
+}
+
+/** Escapa HTML para prevenir XSS */
+function esc(s) {
+  const d = document.createElement("div");
+  d.textContent = s || "";
+  return d.innerHTML;
+}

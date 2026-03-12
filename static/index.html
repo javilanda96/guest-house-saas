@@ -2,94 +2,156 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Conversaciones - Booking Bot</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Inbox - Booking Bot</title>
   <link rel="stylesheet" href="/static/css/style.css">
 </head>
 <body>
   <nav>
-    <a href="/" class="active">Conversaciones</a>
+    <a href="/" class="active">Inbox</a>
     <a href="/static/alerts.html">Alertas</a>
   </nav>
 
-  <h1>Conversaciones</h1>
+  <h1>Inbox</h1>
+
+  <div class="inbox-tabs" id="tabs"></div>
   <div id="content"><p class="loading">Cargando...</p></div>
 
   <script src="/static/js/api.js"></script>
   <script>
+    const STATUS_ORDER = { urgent: 0, host_pending: 1, open: 2, bot_resolved: 3 };
+    let allConvs = [];
+    let currentTab = "attention";
+
     async function load() {
       try {
-        const data = await API.get("/api/conversations");
-        if (!data.conversations.length) {
-          document.getElementById("content").innerHTML = "<p>No hay conversaciones.</p>";
-          return;
-        }
-        render(data.conversations);
+        const data = await API.get("/api/conversations?limit=200");
+        allConvs = data.conversations;
+        sortConversations();
+        renderTabs();
+        renderList();
       } catch (e) {
-        document.getElementById("content").innerHTML = `<p class="error">${e.message}</p>`;
+        document.getElementById("content").innerHTML =
+          `<p class="error">${esc(e.message)}</p>`;
       }
     }
 
-    function render(convs) {
-      const statuses = ["open", "bot_resolved", "host_pending", "urgent"];
-      const owners = ["bot", "host"];
+    function sortConversations() {
+      allConvs.sort((a, b) => {
+        const d = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9);
+        if (d !== 0) return d;
+        const ta = a.last_message_at || a.updated_at || "";
+        const tb = b.last_message_at || b.updated_at || "";
+        return tb.localeCompare(ta);
+      });
+    }
 
-      let html = `<table>
-        <thead><tr>
-          <th>Chat ID</th>
-          <th>Status</th>
-          <th>Owner</th>
-          <th>Prioridad</th>
-          <th>Mensajes</th>
-          <th>Ultima actividad</th>
-          <th>Ver</th>
-        </tr></thead><tbody>`;
+    function filterConvs(tab) {
+      if (tab === "attention") {
+        return allConvs.filter(c =>
+          c.status === "urgent" || c.status === "host_pending"
+        );
+      }
+      if (tab === "resolved") {
+        return allConvs.filter(c => c.status === "bot_resolved");
+      }
+      return allConvs; // "all"
+    }
 
+    function countAttention() {
+      return allConvs.filter(c =>
+        c.status === "urgent" || c.status === "host_pending"
+      ).length;
+    }
+
+    function renderTabs() {
+      const attn = countAttention();
+      const total = allConvs.length;
+      const resolved = allConvs.filter(c => c.status === "bot_resolved").length;
+
+      const attnBadge = attn > 0
+        ? `<span class="count-badge count-badge-red">${attn}</span>`
+        : `<span class="count-badge">0</span>`;
+
+      document.getElementById("tabs").innerHTML = `
+        <button onclick="switchTab('attention')"
+                class="${currentTab === 'attention' ? 'active' : ''}">
+          Necesita atencion ${attnBadge}
+        </button>
+        <button onclick="switchTab('all')"
+                class="${currentTab === 'all' ? 'active' : ''}">
+          Todas <span class="count-badge">${total}</span>
+        </button>
+        <button onclick="switchTab('resolved')"
+                class="${currentTab === 'resolved' ? 'active' : ''}">
+          Resueltas <span class="count-badge">${resolved}</span>
+        </button>
+      `;
+    }
+
+    function switchTab(tab) {
+      currentTab = tab;
+      renderTabs();
+      renderList();
+    }
+
+    function cardClass(status) {
+      const map = {
+        urgent: "card-urgent",
+        host_pending: "card-host-pending",
+        open: "card-open",
+        bot_resolved: "card-resolved",
+      };
+      return map[status] || "";
+    }
+
+    function renderList() {
+      const convs = filterConvs(currentTab);
+
+      if (!convs.length) {
+        const msgs = {
+          attention: "No hay conversaciones que necesiten atencion",
+          all: "No hay conversaciones",
+          resolved: "No hay conversaciones resueltas",
+        };
+        document.getElementById("content").innerHTML = `
+          <div class="inbox-empty">
+            <div class="inbox-empty-icon">&#10003;</div>
+            <div>${msgs[currentTab]}</div>
+          </div>`;
+        return;
+      }
+
+      let html = '<div class="inbox-list">';
       for (const c of convs) {
-        const statusOpts = statuses.map(s =>
-          `<option value="${s}" ${s === c.status ? "selected" : ""}>${s}</option>`
-        ).join("");
-        const ownerOpts = owners.map(o =>
-          `<option value="${o}" ${o === c.owner ? "selected" : ""}>${o}</option>`
-        ).join("");
+        const t = timeAgo(c.last_message_at || c.updated_at);
+        const preview = esc(truncate(c.last_user_message, 120));
+        const prop = esc(fmtProperty(c.property_id));
+        const alertFlag = c.pending_alerts > 0
+          ? `<span class="inbox-alert-flag">&#9888; ${c.pending_alerts} alerta${c.pending_alerts > 1 ? 's' : ''}</span>`
+          : "";
 
-        html += `<tr>
-          <td>${c.telegram_chat_id}</td>
-          <td>
-            <select class="inline" onchange="changeStatus(${c.id}, this.value)">
-              ${statusOpts}
-            </select>
-          </td>
-          <td>
-            <select class="inline" onchange="changeOwner(${c.id}, this.value)">
-              ${ownerOpts}
-            </select>
-          </td>
-          <td><span class="badge ${c.priority === 'high' ? 'badge-red' : 'badge-gray'}">${c.priority}</span></td>
-          <td>${c.message_count}</td>
-          <td>${fmtDate(c.last_message_at || c.updated_at)}</td>
-          <td><a href="/static/conversation.html?id=${c.id}">Ver hilo</a></td>
-        </tr>`;
+        html += `
+          <div class="inbox-card ${cardClass(c.status)}"
+               onclick="location.href='/static/conversation.html?id=${c.id}'">
+            <div class="inbox-row-top">
+              <span class="inbox-property">${prop}</span>
+              <div class="inbox-badges">
+                <span class="badge ${statusClass(c.status)}">${statusLabel(c.status)}</span>
+                <span class="badge ${c.owner === 'host' ? 'badge-blue' : 'badge-gray'}">${c.owner}</span>
+              </div>
+              <span class="inbox-time">${t}</span>
+            </div>
+            <div class="inbox-preview">${preview || '<em>Sin mensajes</em>'}</div>
+            <div class="inbox-row-bottom">
+              <span class="inbox-msg-count">${c.message_count} mensaje${c.message_count !== 1 ? 's' : ''}</span>
+              ${alertFlag}
+              <span style="margin-left:auto; font-size:11px; color:#bbb">Chat ${c.telegram_chat_id}</span>
+            </div>
+          </div>`;
       }
-      html += "</tbody></table>";
+      html += "</div>";
       document.getElementById("content").innerHTML = html;
-    }
-
-    async function changeStatus(id, status) {
-      try {
-        await API.patch(`/api/conversations/${id}/status`, { status });
-      } catch (e) {
-        alert("Error: " + e.message);
-        load();
-      }
-    }
-
-    async function changeOwner(id, owner) {
-      try {
-        await API.patch(`/api/conversations/${id}/owner`, { owner });
-      } catch (e) {
-        alert("Error: " + e.message);
-        load();
-      }
     }
 
     load();
