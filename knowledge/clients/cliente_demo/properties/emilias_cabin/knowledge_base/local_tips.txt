@@ -1,0 +1,102 @@
+KNOWLEDGE FILE: LOCAL_TIPS.TXT
+This file contains structured information used by the AI assistant to answer guest questions.
+
+
+
+===== SOURCE: RECOMENDACIONESLOCALES =====
+
+RECOMENDACIONES LOCALES
+
+Guardamar del Segura ofrece muchas opciones para comer, pasear y disfrutar de la playa. 
+Estas son algunas recomendaciones cerca del apartamento.
+
+RESTAURANTES CERCANOS
+
+Velacho Guardamar
+
+Restaurante situado en el paseo marítimo, ideal para comer o cenar cerca de la playa con vistas al Mediterráneo.
+
+Mapa:
+https://maps.google.com/?q=Velacho+Guardamar
+
+El Bocaíto
+
+Restaurante popular con tapas, montaditos y diferentes platos. 
+Muy frecuentado tanto por locales como por visitantes.
+
+Mapa:
+https://maps.google.com/?q=El+Bocaito+Guardamar
+
+La Cañada Playa
+
+Restaurante muy conocido en Guardamar con cocina mediterránea y arroces. 
+Situado cerca de la playa.
+
+Mapa:
+https://maps.app.goo.gl/g1Jyx8F9cRtS8Vi38
+
+SUPERMERCADOS CERCANOS
+
+Mercadona Guardamar
+
+Supermercado grande donde puedes encontrar todo tipo de productos.
+
+Mapa:
+https://maps.google.com/?q=Mercadona+Guardamar+del+Segura
+
+Masymas Supermercado
+
+Supermercado cercano situado en Avenida del Puerto.
+
+Mapa:
+https://maps.google.com/?q=Masymas+Guardamar
+
+PLAYAS
+
+Playa Centro (Guardamar)
+
+La playa principal de Guardamar del Segura. 
+Amplia, con arena fina y paseo marítimo con bares y restaurantes.
+
+Mapa:
+https://maps.google.com/?q=Playa+Centro+Guardamar
+
+LUGARES PARA PASEAR
+
+Parque Reina Sofía
+
+Uno de los parques más conocidos de Guardamar. 
+Tiene zonas verdes, patos, pavos reales y zonas para pasear.
+
+Mapa:
+https://maps.google.com/?q=Parque+Reina+Sofia+Guardamar
+
+Pinada de Guardamar
+
+Gran bosque de pinos junto a la playa ideal para caminar, hacer deporte o pasear en bicicleta.
+
+Mapa:
+https://maps.google.com/?q=Pinada+Guardamar
+
+GOLF
+
+La Marquesa Golf (Rojales)
+
+Campo de golf situado a unos 15 minutos en coche desde Guardamar del Segura.
+
+Dispone de campo de 18 hoyos, restaurante y zona de prácticas.
+
+Mapa:
+https://maps.google.com/?q=La+Marquesa+Golf+Rojales
+
+PUERTO DEPORTIVO
+
+Puerto Deportivo Marina de las Dunas
+
+Puerto deportivo situado junto a la desembocadura del río Segura. 
+Es una zona agradable para pasear y ver barcos.
+
+También hay restaurantes y bares cerca del puerto.
+
+Mapa:
+https://maps.google.com/?q=Puerto+Deportivo+Marina+de+las+Dunas+Guardamar

@@ -1,0 +1,95 @@
+KNOWLEDGE FILE: HOUSE_RULES.TXT
+This file contains structured information used by the AI assistant to answer guest questions.
+
+
+
+===== SOURCE: REGLASCASA =====
+
+NORMAS DE LA CASA
+
+Para garantizar una estancia agradable para todos los huéspedes y vecinos, por favor respeta las siguientes normas.
+
+FIESTAS Y EVENTOS
+
+No se permiten fiestas ni eventos dentro del apartamento.
+
+RUIDO
+
+Evitar hacer ruido excesivo, especialmente durante las horas de descanso por la noche y primeras horas de la mañana.
+
+EDAD MÍNIMA
+
+La edad mínima para reservar el apartamento es de 18 años.
+
+MASCOTAS
+
+No se permiten mascotas en el apartamento.
+
+FUMAR
+
+No está permitido fumar dentro del apartamento.
+
+Si se fuma, debe hacerse únicamente en la terraza.
+
+NÚMERO MÁXIMO DE HUÉSPEDES
+
+No se permite superar la capacidad máxima del apartamento.
+
+RESPETO DEL APARTAMENTO
+
+Por favor trata el apartamento, los muebles y el equipamiento con cuidado.
+
+BASURA
+
+Se recomienda sacar la basura antes del check-out si es posible.
+
+INCIDENCIAS O DAÑOS
+
+Si ocurre algún problema o daño durante la estancia, contacta con Ana lo antes posible para poder solucionarlo.
+
+
+===== SOURCE: BASURAS =====
+
+BASURA Y RECICLAJE
+
+UBICACIÓN DE CONTENEDORES
+
+Los contenedores de basura más cercanos se encuentran junto al polideportivo.
+
+Mapa:
+https://maps.app.goo.gl/cWby58wNfxqkmWy3A
+
+INSTRUCCIONES
+
+Si es posible, por favor saca la basura antes del check-out.
+
+También suele haber contenedores de basura en las calles cercanas al edificio.
+
+Se recomienda separar y reciclar los residuos siempre que sea posible.
+
+
+===== SOURCE: COCINA_ASEO =====
+
+COCINA
+
+La cocina del apartamento está equipada con:
+
+- frigorífico
+- horno
+- microondas
+- lavavajillas
+- cafetera Nespresso
+- hervidor de agua
+- vitrocerámica
+- utensilios de cocina
+- platos y cubiertos
+
+BAÑO
+
+El baño del apartamento incluye:
+
+- ducha
+- toallas
+- secador de pelo
+- artículos básicos de baño
+- calentador de agua

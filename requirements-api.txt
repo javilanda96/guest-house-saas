@@ -1,0 +1,4 @@
+# Dependencias minimas para desplegar solo la API + panel en Render.
+# No incluye openai ni lingua (solo los necesita bot.py, que corre local).
+fastapi==0.135.1
+uvicorn[standard]==0.41.0

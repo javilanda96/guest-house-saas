@@ -1,0 +1,88 @@
+message,category
+What is the wifi password?,faq
+Where is the beach?,faq
+What time is check-out?,faq
+Is there a supermarket nearby?,faq
+
+Can we check in earlier?,operational
+Can we leave the luggage?,operational
+Can we park two cars?,operational
+Can we bring a dog?,operational
+
+The shower is not working,incident
+The AC is broken,incident
+The door does not open,incident
+The wifi is not working,incident
+
+There is a fire,emergency
+Gas leak,emergency
+Someone is injured,emergency
+We are locked outside at night,emergency
+
+The apartment is dirty,complaint
+This is unacceptable,complaint
+The noise is terrible,complaint
+
+ok,ambiguous
+what?,ambiguous
+hello???,ambiguous
+random text,ambiguous
+
+The toilet is leaking,incident
+The fridge is not cooling,incident
+Hot water is not working,incident
+The lights in the kitchen do not turn on,incident
+
+The apartment smells bad,complaint
+This place is very noisy at night,complaint
+We are disappointed with the cleanliness,complaint
+The bed sheets are dirty,complaint
+
+Can we check out later?,operational
+Is late check-in possible?,operational
+Can we use the pool after 10pm?,operational
+Where can we park?,operational
+
+Is there air conditioning?,faq
+Do you have towels?,faq
+Is the kitchen fully equipped?,faq
+Is there heating?,faq
+
+There is smoke in the apartment,emergency
+We smell gas in the kitchen,emergency
+Someone fell and is bleeding,emergency
+We cannot open the door and it is midnight,emergency
+
+hi,ambiguous
+??? ,ambiguous
+are you there?,ambiguous
+test message,ambiguous
+
+wifi?,faq
+wifi password?,faq
+air conditioning?,faq
+is there ac?,faq
+
+early check in possible?,operational
+can we checkin earlier?,operational
+parking?,operational
+can we park here?,operational
+
+wifi not working pls help,incident
+ac not working,incident
+door stuck,incident
+water not hot,incident
+
+fire in kitchen,emergency
+gas smell apartment,emergency
+someone hurt here,emergency
+cannot open door outside,emergency
+
+this place is dirty,complaint
+not happy with apartment,complaint
+too much noise at night,complaint
+
+hello,ambiguous
+hi there,ambiguous
+??? hello?,ambiguous
+test,ambiguous

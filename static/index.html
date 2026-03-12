@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Conversaciones - Booking Bot</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav>
+    <a href="/" class="active">Conversaciones</a>
+    <a href="/static/alerts.html">Alertas</a>
+  </nav>
+
+  <h1>Conversaciones</h1>
+  <div id="content"><p class="loading">Cargando...</p></div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    async function load() {
+      try {
+        const data = await API.get("/api/conversations");
+        if (!data.conversations.length) {
+          document.getElementById("content").innerHTML = "<p>No hay conversaciones.</p>";
+          return;
+        }
+        render(data.conversations);
+      } catch (e) {
+        document.getElementById("content").innerHTML = `<p class="error">${e.message}</p>`;
+      }
+    }
+
+    function render(convs) {
+      const statuses = ["open", "bot_resolved", "host_pending", "urgent"];
+      const owners = ["bot", "host"];
+
+      let html = `<table>
+        <thead><tr>
+          <th>Chat ID</th>
+          <th>Status</th>
+          <th>Owner</th>
+          <th>Prioridad</th>
+          <th>Mensajes</th>
+          <th>Ultima actividad</th>
+          <th>Ver</th>
+        </tr></thead><tbody>`;
+
+      for (const c of convs) {
+        const statusOpts = statuses.map(s =>
+          `<option value="${s}" ${s === c.status ? "selected" : ""}>${s}</option>`
+        ).join("");
+        const ownerOpts = owners.map(o =>
+          `<option value="${o}" ${o === c.owner ? "selected" : ""}>${o}</option>`
+        ).join("");
+
+        html += `<tr>
+          <td>${c.telegram_chat_id}</td>
+          <td>
+            <select class="inline" onchange="changeStatus(${c.id}, this.value)">
+              ${statusOpts}
+            </select>
+          </td>
+          <td>
+            <select class="inline" onchange="changeOwner(${c.id}, this.value)">
+              ${ownerOpts}
+            </select>
+          </td>
+          <td><span class="badge ${c.priority === 'high' ? 'badge-red' : 'badge-gray'}">${c.priority}</span></td>
+          <td>${c.message_count}</td>
+          <td>${fmtDate(c.last_message_at || c.updated_at)}</td>
+          <td><a href="/static/conversation.html?id=${c.id}">Ver hilo</a></td>
+        </tr>`;
+      }
+      html += "</tbody></table>";
+      document.getElementById("content").innerHTML = html;
+    }
+
+    async function changeStatus(id, status) {
+      try {
+        await API.patch(`/api/conversations/${id}/status`, { status });
+      } catch (e) {
+        alert("Error: " + e.message);
+        load();
+      }
+    }
+
+    async function changeOwner(id, owner) {
+      try {
+        await API.patch(`/api/conversations/${id}/owner`, { owner });
+      } catch (e) {
+        alert("Error: " + e.message);
+        load();
+      }
+    }
+
+    load();
+  </script>
+</body>
+</html>

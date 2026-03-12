@@ -1,0 +1,88 @@
+KNOWLEDGE FILE: CHECKIN.TXT
+This file contains structured information used by the AI assistant to answer guest questions.
+
+
+
+===== SOURCE: ACCESO =====
+
+ACCESO AL APARTAMENTO
+
+El acceso al edificio se realiza desde el paseo marítimo.
+
+La puerta de entrada está frente a la playa, pero no es visible a simple vista porque se encuentra dentro de la terraza del restaurante El Bocaito.
+
+CÓMO ENCONTRAR EL APARTAMENTO
+
+El apartamento está situado en el cuarto piso.
+
+Al salir del ascensor o subir las escaleras, la puerta del apartamento es la de la derecha.
+
+Se identifica fácilmente porque hay un cartel rojo con la licencia de uso turístico enmarcada.
+
+SI EL HUÉSPED NO PUEDE ENTRAR
+
+Si el huésped no consigue acceder al edificio o al apartamento, debe contactar inmediatamente con Ana a través de su número de móvil.
+
+ACCESIBILIDAD
+
+El edificio dispone de ascensor.
+
+Sin embargo, en el hall de entrada hay tres escalones antes de llegar al ascensor. 
+Hay barandilla, pero el acceso no es adecuado para personas que utilizan silla de ruedas.
+
+
+===== SOURCE: CHECKIN_CHECKOUT =====
+
+--------------------------------------------
+CHECK-IN / CHECK-OUT
+--------------------------------------------
+
+Check-in: desde las 15:00 
+Check-out: antes de las 12:00
+
+Early check-in:
+Preguntar a Ana
+
+Late check-out:
+Preguntar a Ana
+
+El huésped debe avisar con antelación de su hora aproximada de llegada.
+
+Si necesita ayuda con el check-in o no sabe qué hacer, facilitar un enlace de llamada al siguiente teléfono, pertenece a Ana:
+
++34 607 305 040
+
+
+===== SOURCE: PARKING =====
+
+APARCAMIENTO
+
+El apartamento no dispone de plaza de parking privada.
+
+APARCAMIENTO EN LA ZONA
+
+Normalmente es posible aparcar de forma gratuita en la calle cerca del apartamento.
+
+Sin embargo, en temporada alta puede ser más difícil encontrar aparcamiento, especialmente en horas punta.
+
+ZONA AZUL
+
+La zona conocida como "las casitas", situada entre la pinada y el mar, tiene aparcamiento regulado (zona azul).
+
+Esta zona está algo más alejada del apartamento.
+
+Horario aproximado en verano:
+10:00 – 20:00
+
+PARKING SUBTERRÁNEO
+
+También hay un parking subterráneo de pago cerca del ayuntamiento.
+
+Mapa:
+https://maps.app.goo.gl/9H6NvMxo14oh8qyj6
+
+CALLES DONDE SUELE HABER APARCAMIENTO
+
+- Avenida Europa
+- Carrer Azorín
+- Avinguda de Cervantes

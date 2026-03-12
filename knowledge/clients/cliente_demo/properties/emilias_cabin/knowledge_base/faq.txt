@@ -1,0 +1,69 @@
+KNOWLEDGE FILE: FAQ.TXT
+This file contains structured information used by the AI assistant to answer guest questions.
+
+
+
+===== SOURCE: GENERAL =====
+
+INFORMACIÓN GENERAL
+
+Nombre del alojamiento: Emilia's Cabin
+
+Dirección:
+Avenida Europa 11, Apartment 4
+03140 Guardamar del Segura
+Alicante, España
+
+Tipo de alojamiento: apartamento completo
+Capacidad máxima: 4 huéspedes
+Dormitorios: 2
+Baños: 1
+
+Equipamiento general:
+- aire acondicionado
+- WiFi gratuito
+- cocina equipada
+- televisión
+- lavadora
+- ropa de cama incluida
+- toallas incluidas
+
+Ubicación:
+El apartamento está situado en primera línea de playa en Guardamar del Segura, con vistas directas al mar.
+
+Playa más cercana:
+Playa Centro
+
+Aeropuerto más cercano:
+Aeropuerto de Alicante-Elche
+
+Distancia aproximada al aeropuerto:
+31 km
+
+
+===== SOURCE: WIFI =====
+
+WIFI
+
+Nombre de la red (SSID):
+emilias_cabin
+
+Contraseña:
+EmiliasCabin2026
+
+Cómo conectarse:
+
+1. Abre la configuración WiFi de tu móvil, tablet o portátil.
+2. Busca la red llamada "emilias_cabin".
+3. Introduce la contraseña: EmiliasCabin2026.
+
+Si el WiFi no funciona:
+
+1. Comprueba que el router está conectado a la corriente.
+2. El router se encuentra junto a la televisión.
+3. Desconecta el router de la corriente.
+4. Espera 30 segundos.
+5. Vuelve a conectarlo.
+6. Espera 2 minutos a que se restablezca la conexión.
+
+Si el problema continúa, contacta con el anfitrión.

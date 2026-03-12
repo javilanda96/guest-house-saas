@@ -1,0 +1,5 @@
+openai==2.24.0
+lingua-language-detector==2.2.0
+httpx==0.28.1
+fastapi==0.135.1
+uvicorn[standard]==0.41.0

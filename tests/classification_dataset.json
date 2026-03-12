@@ -1,0 +1,78 @@
+[
+  {
+    "message": "¿A qué hora es el check-out?",
+    "category": "faq"
+  },
+  {
+    "message": "No funciona el wifi",
+    "category": "incident"
+  },
+  {
+    "message": "¿Cómo me conecto al wifi?",
+    "category": "operational"
+  },
+  {
+    "message": "La casa está muy sucia",
+    "category": "complaint"
+  },
+  {
+    "message": "Hay humo en la cocina",
+    "category": "emergency"
+  },
+  {
+    "message": "¿Dónde puedo aparcar?",
+    "category": "faq"
+  },
+  {
+    "message": "No encuentro la llave del apartamento",
+    "category": "incident"
+  },
+  {
+    "message": "Gracias por todo!",
+    "category": "smalltalk"
+  },
+  {
+    "message": "¿Cómo funciona el aire acondicionado?",
+    "category": "operational"
+  },
+  {
+    "message": "La puerta no abre",
+    "category": "incident"
+  },
+  {
+    "message": "¿Dónde está el supermercado más cercano?",
+    "category": "faq"
+  },
+  {
+    "message": "El agua caliente no funciona",
+    "category": "incident"
+  },
+  {
+    "message": "El vecino está haciendo mucho ruido",
+    "category": "complaint"
+  },
+  {
+    "message": "¿Podemos hacer el check-in antes?",
+    "category": "operational"
+  },
+  {
+    "message": "Hay una fuga de agua en el baño",
+    "category": "emergency"
+  },
+  {
+    "message": "No entiendo cómo entrar al edificio",
+    "category": "operational"
+  },
+  {
+    "message": "Hola",
+    "category": "smalltalk"
+  },
+  {
+    "message": "Ok",
+    "category": "smalltalk"
+  },
+  {
+    "message": "Perfecto, gracias",
+    "category": "smalltalk"
+  }
+]

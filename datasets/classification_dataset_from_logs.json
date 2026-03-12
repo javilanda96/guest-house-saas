@@ -1,0 +1,14 @@
+[
+  {
+    "message": "hola! hay cocina?",
+    "category": "faq"
+  },
+  {
+    "message": "y se permiten mascotas?",
+    "category": "faq"
+  },
+  {
+    "message": "tiene playa?",
+    "category": "faq"
+  }
+]

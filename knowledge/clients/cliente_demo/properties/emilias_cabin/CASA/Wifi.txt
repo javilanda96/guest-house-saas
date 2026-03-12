@@ -1,0 +1,24 @@
+WIFI
+
+Nombre de la red (SSID):
+emilias_cabin
+
+Contraseña:
+EmiliasCabin2026
+
+Cómo conectarse:
+
+1. Abre la configuración WiFi de tu móvil, tablet o portátil.
+2. Busca la red llamada "emilias_cabin".
+3. Introduce la contraseña: EmiliasCabin2026.
+
+Si el WiFi no funciona:
+
+1. Comprueba que el router está conectado a la corriente.
+2. El router se encuentra junto a la televisión.
+3. Desconecta el router de la corriente.
+4. Espera 30 segundos.
+5. Vuelve a conectarlo.
+6. Espera 2 minutos a que se restablezca la conexión.
+
+Si el problema continúa, contacta con el anfitrión.

@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Detalle - Booking Bot</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav>
+    <a href="/">Conversaciones</a>
+    <a href="/static/alerts.html">Alertas</a>
+  </nav>
+
+  <h1>Detalle de conversacion</h1>
+  <div id="header"></div>
+  <div id="content"><p class="loading">Cargando...</p></div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const params = new URLSearchParams(window.location.search);
+    const convId = params.get("id");
+
+    async function load() {
+      if (!convId) {
+        document.getElementById("content").innerHTML = '<p class="error">Falta ?id= en la URL</p>';
+        return;
+      }
+
+      try {
+        const data = await API.get(`/api/conversations/${convId}/interactions`);
+        renderHeader(data);
+        renderMessages(data.messages);
+      } catch (e) {
+        document.getElementById("content").innerHTML = `<p class="error">${e.message}</p>`;
+      }
+    }
+
+    function renderHeader(data) {
+      document.getElementById("header").innerHTML = `
+        <div class="conv-header">
+          <div><span class="label">Conversation</span><br><span class="value">#${data.conversation_id}</span></div>
+          <div><span class="label">Telegram Chat</span><br><span class="value">${data.telegram_chat_id}</span></div>
+          <div><span class="label">Mensajes</span><br><span class="value">${data.total}</span></div>
+          <div><a href="/">&larr; Volver</a></div>
+        </div>`;
+    }
+
+    function renderMessages(msgs) {
+      if (!msgs.length) {
+        document.getElementById("content").innerHTML = "<p>Sin interacciones.</p>";
+        return;
+      }
+
+      let html = '<div class="message-list">';
+      for (const m of msgs) {
+        const badges = [];
+        if (m.urgent) badges.push('<span class="badge badge-red">urgente</span>');
+        if (m.escalate) badges.push('<span class="badge badge-orange">escalado</span>');
+
+        const reply = m.reply_text || m.ack_text || "";
+
+        html += `<div class="message-card">
+          <div class="user-msg">${esc(m.user_message)}</div>
+          ${reply ? `<div class="bot-reply">${esc(reply)}</div>` : ""}
+          <div class="meta">
+            <span class="badge ${statusClass(m.action === 'reply_guest' ? 'bot_resolved' : 'host_pending')}">${m.action}</span>
+            <span class="badge badge-gray">${m.category}</span>
+            ${badges.join(" ")}
+            &middot; ${fmtDate(m.created_at)}
+          </div>
+        </div>`;
+      }
+      html += "</div>";
+      document.getElementById("content").innerHTML = html;
+    }
+
+    function esc(s) {
+      const d = document.createElement("div");
+      d.textContent = s;
+      return d.innerHTML;
+    }
+
+    load();
+  </script>
+</body>
+</html>

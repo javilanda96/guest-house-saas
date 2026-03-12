@@ -1,0 +1,6 @@
+[CLASSIFIER] message='hola! hay cocina?' | category=faq | action=reply_guest
+[CLASSIFIER] message='y se permiten mascotas?' | category=faq | action=reply_guest
+[CLASSIFIER] message='tiene playa?' | category=faq | action=reply_guest
+[2026-03-11T17:53:29.243531] [CLASSIFIER] message='What is the wifi password?' | category=faq | action=reply_guest
+[2026-03-11T17:53:46.036360] [CLASSIFIER] message='ow do I enter the apartment?' | category=operational | action=reply_guest
+[2026-03-11T17:54:05.901873] [CLASSIFIER] message='Can we smoke on the terrace?' | category=emergency | action=alert_staff_urgent
