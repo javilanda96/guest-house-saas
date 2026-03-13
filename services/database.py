@@ -1,9 +1,21 @@
 """
-Capa de persistencia mínima en SQLite.
+Capa de persistencia dual SQLite / PostgreSQL.
+
+Soporte dual-backend:
+  Existe para evitar la friccion de instalar PostgreSQL localmente
+  durante el desarrollo de un MVP por un solo desarrollador.
+  Cuando el esquema supere ~5 tablas o el equipo crezca, migrar
+  a PostgreSQL-only eliminando _adapt_sql, _ConnWrapper y _TABLES.
+  Ver docs/ROADMAP.md, Milestone 3.
+
+Comportamiento:
+- Si DATABASE_URL esta definida -> conecta a PostgreSQL.
+- Si no -> usa SQLite local en data/bot.db.
 
 Responsabilidades:
 - Inicializar la base de datos y crear tablas si no existen.
-- Escribir cada interacción del bot de forma incremental.
+- Escribir cada interaccion del bot de forma incremental.
+- Exponer funciones de lectura/escritura para api.py.
 
 No reemplaza el logging JSONL existente — escribe en paralelo.
 Si la escritura a DB falla, el bot sigue funcionando normalmente.
@@ -11,73 +23,280 @@ Si la escritura a DB falla, el bot sigue funcionando normalmente.
 
 from __future__ import annotations
 
+import os
+import re
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
-# Ruta absoluta basada en la ubicación del proyecto, no en el cwd.
-# services/database.py -> parent = services/ -> parent = project root
+# =========================================================
+# Backend detection
+# =========================================================
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+# Render usa "postgres://" pero psycopg2 necesita "postgresql://"
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+_USE_PG = DATABASE_URL is not None
+
+if _USE_PG:
+    import psycopg2
+    import psycopg2.extras
+
+# Ruta absoluta para SQLite (solo usada si _USE_PG es False)
 _PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = _PROJECT_ROOT / "data" / "bot.db"
 
+
+# =========================================================
+# Connection helpers
+# =========================================================
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _conn() -> sqlite3.Connection:
-    conn = sqlite3.connect(str(DB_PATH))
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    return conn
+def _raw_conn():
+    """Devuelve una conexion cruda (sqlite3 o psycopg2)."""
+    if _USE_PG:
+        conn = psycopg2.connect(DATABASE_URL)
+        return conn
+    else:
+        conn = sqlite3.connect(str(DB_PATH))
+        conn.row_factory = sqlite3.Row
+        conn.execute("PRAGMA foreign_keys = ON")
+        return conn
+
+
+# Regex para traduccion de placeholders.
+# Detecta strings entre comillas simples ('...') o el caracter ?.
+# Si el match es un string entrecomillado, se deja intacto.
+# Si es ?, se reemplaza por %s.
+#
+# Limitacion conocida: no maneja comillas escapadas dentro de strings
+# (ej: 'it''s'). Esto es aceptable porque ninguna query actual o
+# previsible en este proyecto usa comillas escapadas en literales SQL.
+_PH_RE = re.compile(r"'[^']*'|\?")
+
+
+def _adapt_sql(sql: str, param_count: int = 0) -> str:
+    """
+    Traduce placeholders ? -> %s para PostgreSQL, protegiendo strings literales.
+
+    Este es un safeguard pragmatico, NO un parser SQL completo.
+    Solo es necesario mientras se mantenga soporte dual SQLite/PostgreSQL.
+    """
+    if not _USE_PG:
+        return sql
+    result = _PH_RE.sub(
+        lambda m: '%s' if m.group(0) == '?' else m.group(0),
+        sql,
+    )
+    if param_count > 0:
+        actual = result.count('%s')
+        assert actual == param_count, (
+            f"Placeholder mismatch: {actual} placeholders in SQL, "
+            f"{param_count} params provided"
+        )
+    return result
+
+
+@contextmanager
+def _conn():
+    """
+    Context manager que devuelve una conexion con auto-commit al salir.
+    Compatible con ambos backends.
+    """
+    raw = _raw_conn()
+    try:
+        if _USE_PG:
+            cur = raw.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        else:
+            cur = raw.cursor()
+        yield _ConnWrapper(raw, cur)
+        raw.commit()
+    except Exception:
+        raw.rollback()
+        raise
+    finally:
+        raw.close()
+
+
+class _ConnWrapper:
+    """
+    Wrapper minimo que normaliza la interfaz entre SQLite y PostgreSQL.
+    Traduce ? -> %s y ofrece execute/fetchone/fetchall uniformes.
+    """
+
+    def __init__(self, raw_conn, cursor):
+        self._conn = raw_conn
+        self._cursor = cursor
+
+    def execute(self, sql: str, params=None):
+        """Ejecuta SQL adaptando placeholders. Devuelve self para encadenamiento."""
+        pc = len(params) if params else 0
+        adapted = _adapt_sql(sql, param_count=pc)
+        if params:
+            self._cursor.execute(adapted, params)
+        else:
+            self._cursor.execute(adapted)
+        return self
+
+    def fetchone(self):
+        row = self._cursor.fetchone()
+        if row is None:
+            return None
+        if _USE_PG:
+            return dict(row)
+        return row
+
+    def fetchall(self):
+        rows = self._cursor.fetchall()
+        if _USE_PG:
+            return [dict(r) for r in rows]
+        return rows
+
+    @property
+    def lastrowid(self):
+        if _USE_PG:
+            return self._cursor.fetchone()["id"]
+        return self._cursor.lastrowid
+
+    @property
+    def raw(self):
+        return self._conn
+
+
+# =========================================================
+# Schema definition (single source of truth)
+# =========================================================
+#
+# Las tablas se definen UNA SOLA VEZ en _TABLES.
+# _render_schema() genera el DDL correcto para cada backend.
+#
+# Tokens especiales en las columnas:
+#   "PK"            -> INTEGER PRIMARY KEY AUTOINCREMENT (SQLite)
+#                      SERIAL PRIMARY KEY (PostgreSQL)
+#   "BIGINT_OR_INT" -> INTEGER (SQLite), BIGINT (PostgreSQL)
+#   cualquier otro  -> se usa tal cual en ambos backends
+#
+# Para anadir una columna: agregar una tupla a la lista "columns".
+# Para anadir una tabla: agregar un dict a _TABLES.
+
+_TABLES: List[Dict[str, Any]] = [
+    {
+        "name": "conversations",
+        "columns": [
+            ("id",                 "PK"),
+            ("client_id",          "TEXT NOT NULL"),
+            ("property_id",        "TEXT NOT NULL"),
+            ("telegram_chat_id",   "BIGINT_OR_INT NOT NULL"),
+            ("status",             "TEXT NOT NULL DEFAULT 'open'"),
+            ("owner",              "TEXT NOT NULL DEFAULT 'bot'"),
+            ("priority",           "TEXT NOT NULL DEFAULT 'normal'"),
+            ("created_at",         "TEXT NOT NULL"),
+            ("updated_at",         "TEXT NOT NULL"),
+        ],
+        "constraints": [
+            "UNIQUE(client_id, property_id, telegram_chat_id)",
+        ],
+    },
+    {
+        "name": "interactions",
+        "columns": [
+            ("id",                 "PK"),
+            ("conversation_id",    "INTEGER NOT NULL REFERENCES conversations(id)"),
+            ("user_message",       "TEXT NOT NULL"),
+            ("category",           "TEXT"),
+            ("reason",             "TEXT"),
+            ("action",             "TEXT"),
+            ("urgent",             "INTEGER NOT NULL DEFAULT 0"),
+            ("escalate",           "INTEGER NOT NULL DEFAULT 0"),
+            ("reply_text",         "TEXT"),
+            ("ack_text",           "TEXT"),
+            ("created_at",         "TEXT NOT NULL"),
+        ],
+        "constraints": [],
+    },
+    {
+        "name": "alerts",
+        "columns": [
+            ("id",                 "PK"),
+            ("interaction_id",     "INTEGER NOT NULL REFERENCES interactions(id)"),
+            ("conversation_id",    "INTEGER NOT NULL REFERENCES conversations(id)"),
+            ("reason",             "TEXT"),
+            ("translated_text",    "TEXT"),
+            ("draft_text",         "TEXT"),
+            ("urgent",             "INTEGER NOT NULL DEFAULT 0"),
+            ("resolved_at",        "TEXT"),
+            ("created_at",         "TEXT NOT NULL"),
+        ],
+        "constraints": [],
+    },
+]
+
+
+def _render_schema(dialect: str) -> str:
+    """
+    Genera DDL CREATE TABLE a partir de _TABLES.
+    dialect: "sqlite" o "pg"
+    """
+    stmts = []
+    for table in _TABLES:
+        col_defs = []
+        for col_name, col_spec in table["columns"]:
+            if col_spec == "PK":
+                if dialect == "sqlite":
+                    col_defs.append(f"    {col_name:<24}INTEGER PRIMARY KEY AUTOINCREMENT")
+                else:
+                    col_defs.append(f"    {col_name:<24}SERIAL PRIMARY KEY")
+            elif col_spec.startswith("BIGINT_OR_INT"):
+                suffix = col_spec.replace("BIGINT_OR_INT", "").strip()
+                if dialect == "sqlite":
+                    col_defs.append(f"    {col_name:<24}INTEGER {suffix}".rstrip())
+                else:
+                    col_defs.append(f"    {col_name:<24}BIGINT {suffix}".rstrip())
+            else:
+                col_defs.append(f"    {col_name:<24}{col_spec}")
+
+        for constraint in table.get("constraints", []):
+            col_defs.append(f"    {constraint}")
+
+        body = ",\n".join(col_defs)
+        stmts.append(f"CREATE TABLE IF NOT EXISTS {table['name']} (\n{body}\n);")
+
+    return "\n\n".join(stmts)
+
+
+_SCHEMA_SQLITE = _render_schema("sqlite")
+_SCHEMA_PG = _render_schema("pg")
 
 
 def init_db() -> None:
-    """Crea las tablas si no existen. Seguro de llamar múltiples veces."""
-    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
-    with _conn() as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS conversations (
-                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                client_id           TEXT    NOT NULL,
-                property_id         TEXT    NOT NULL,
-                telegram_chat_id    INTEGER NOT NULL,
-                status              TEXT    NOT NULL DEFAULT 'open',
-                owner               TEXT    NOT NULL DEFAULT 'bot',
-                priority            TEXT    NOT NULL DEFAULT 'normal',
-                created_at          TEXT    NOT NULL,
-                updated_at          TEXT    NOT NULL,
-                UNIQUE(client_id, property_id, telegram_chat_id)
-            );
+    """Crea las tablas si no existen. Seguro de llamar multiples veces."""
+    if _USE_PG:
+        with _conn() as conn:
+            conn.execute(_SCHEMA_PG)
+        print("[DB] Inicializado: PostgreSQL")
+    else:
+        DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+        # executescript requiere gestion propia de transacciones,
+        # por lo que usamos la conexion cruda directamente.
+        raw = sqlite3.connect(str(DB_PATH))
+        try:
+            raw.executescript(_SCHEMA_SQLITE)
+        finally:
+            raw.close()
+        print(f"[DB] Inicializado: SQLite ({DB_PATH})")
 
-            CREATE TABLE IF NOT EXISTS interactions (
-                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                conversation_id     INTEGER NOT NULL REFERENCES conversations(id),
-                user_message        TEXT    NOT NULL,
-                category            TEXT,
-                reason              TEXT,
-                action              TEXT,
-                urgent              INTEGER NOT NULL DEFAULT 0,
-                escalate            INTEGER NOT NULL DEFAULT 0,
-                reply_text          TEXT,
-                ack_text            TEXT,
-                created_at          TEXT    NOT NULL
-            );
 
-            CREATE TABLE IF NOT EXISTS alerts (
-                id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-                interaction_id      INTEGER NOT NULL REFERENCES interactions(id),
-                conversation_id     INTEGER NOT NULL REFERENCES conversations(id),
-                reason              TEXT,
-                translated_text     TEXT,
-                draft_text          TEXT,
-                urgent              INTEGER NOT NULL DEFAULT 0,
-                resolved_at         TEXT,
-                created_at          TEXT    NOT NULL
-            );
-        """)
-
+# =========================================================
+# Escritura (usada por bot.py via persist_interaction)
+# =========================================================
 
 def _log_interaction_db(
     *,
@@ -125,17 +344,32 @@ def _log_interaction_db(
         ).fetchone()
         conv_id: int = row["id"]
 
-        # Insertar interacción
-        cursor = conn.execute(
-            """
-            INSERT INTO interactions
-                (conversation_id, user_message, category, reason, action,
-                 urgent, escalate, reply_text, ack_text, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (conv_id, user_message, category, reason, action,
-             int(urgent), int(escalate), reply_text, ack_text, now),
-        )
+        # Insertar interaccion
+        if _USE_PG:
+            conn.execute(
+                """
+                INSERT INTO interactions
+                    (conversation_id, user_message, category, reason, action,
+                     urgent, escalate, reply_text, ack_text, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                RETURNING id
+                """,
+                (conv_id, user_message, category, reason, action,
+                 int(urgent), int(escalate), reply_text, ack_text, now),
+            )
+            interaction_id = conn.lastrowid
+        else:
+            conn.execute(
+                """
+                INSERT INTO interactions
+                    (conversation_id, user_message, category, reason, action,
+                     urgent, escalate, reply_text, ack_text, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (conv_id, user_message, category, reason, action,
+                 int(urgent), int(escalate), reply_text, ack_text, now),
+            )
+            interaction_id = conn.lastrowid
 
         # Insertar alerta solo si hubo escalado
         if escalate:
@@ -146,7 +380,7 @@ def _log_interaction_db(
                      translated_text, draft_text, urgent, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?)
                 """,
-                (cursor.lastrowid, conv_id, reason,
+                (interaction_id, conv_id, reason,
                  translated_text, draft_text, int(urgent), now),
             )
 
@@ -160,9 +394,9 @@ def persist_interaction(
     result: Dict[str, Any],
 ) -> None:
     """
-    Función pública para bot.py.
+    Funcion publica para bot.py.
 
-    Encapsula la extracción de campos del dict `result` y la escritura a DB.
+    Encapsula la extraccion de campos del dict `result` y la escritura a DB.
     Si falla, emite un warning a stderr y no interrumpe el bot.
     """
     try:
@@ -192,22 +426,22 @@ def persist_interaction(
 # Funciones de lectura (usadas por api.py)
 # =========================================================
 
-def _row_to_dict(row: Optional[sqlite3.Row]) -> Optional[Dict[str, Any]]:
-    """Convierte un sqlite3.Row a dict estándar."""
+def _row_to_dict(row) -> Optional[Dict[str, Any]]:
+    """Convierte un Row a dict estandar."""
     if row is None:
         return None
     return dict(row)
 
 
 def _rows_to_list(rows: list) -> list:
-    """Convierte una lista de sqlite3.Row a lista de dicts."""
+    """Convierte una lista de Rows a lista de dicts."""
     return [dict(r) for r in rows]
 
 
 def get_conversations(*, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
     """
-    Lista conversaciones con conteo de mensajes y última actividad.
-    Ordenadas por última actividad (más recientes primero).
+    Lista conversaciones con conteo de mensajes y ultima actividad.
+    Ordenadas por ultima actividad (mas recientes primero).
     """
     with _conn() as conn:
         rows = conn.execute(
@@ -250,8 +484,8 @@ def get_conversation_interactions(
     offset: int = 0,
 ) -> Optional[Dict[str, Any]]:
     """
-    Lista interacciones de una conversación.
-    Devuelve None si la conversación no existe.
+    Lista interacciones de una conversacion.
+    Devuelve None si la conversacion no existe.
     """
     with _conn() as conn:
         conv = conn.execute(
@@ -287,7 +521,7 @@ def get_conversation_interactions(
             (conversation_id,),
         ).fetchall()
 
-    # Build lookup: interaction_id → [alert, ...]
+    # Build lookup: interaction_id -> [alert, ...]
     alerts_by_interaction: Dict[int, list] = {}
     for a in alert_rows:
         ad = dict(a)
@@ -417,8 +651,8 @@ def update_conversation_status(
     status: str,
 ) -> Optional[Dict[str, Any]]:
     """
-    Actualiza el status de una conversación.
-    Devuelve la conversación actualizada o None si no existe.
+    Actualiza el status de una conversacion.
+    Devuelve la conversacion actualizada o None si no existe.
     """
     if status not in VALID_CONV_STATUSES:
         raise ValueError(f"Invalid status: {status}")
@@ -451,8 +685,8 @@ def update_conversation_owner(
     owner: str,
 ) -> Optional[Dict[str, Any]]:
     """
-    Actualiza el owner de una conversación.
-    Devuelve la conversación actualizada o None si no existe.
+    Actualiza el owner de una conversacion.
+    Devuelve la conversacion actualizada o None si no existe.
     """
     if owner not in VALID_CONV_OWNERS:
         raise ValueError(f"Invalid owner: {owner}")

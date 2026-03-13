@@ -11,7 +11,7 @@ Uso programatico (desde api.py):
 Seguro de ejecutar multiples veces: solo inserta si conversations esta vacia.
 """
 
-from services.database import DB_PATH, init_db, _conn, _now
+from services.database import init_db, _conn, _now, _USE_PG
 
 
 def _is_empty() -> bool:
@@ -21,15 +21,26 @@ def _is_empty() -> bool:
         return row["cnt"] == 0
 
 
+def _insert_returning_id(conn, sql: str, params: tuple) -> int:
+    """
+    Inserta un registro y devuelve su id.
+    En PostgreSQL usa RETURNING id; en SQLite usa lastrowid.
+    """
+    if _USE_PG:
+        conn.execute(sql + " RETURNING id", params)
+        return conn.lastrowid
+    else:
+        conn.execute(sql, params)
+        return conn.lastrowid
+
+
 def _seed() -> None:
     """Inserta datos demo representativos."""
     now = _now()
-    conn = _conn()
-    cur = conn.cursor()
 
-    try:
+    with _conn() as conn:
         # --- Conversacion 1: resuelta por bot (wifi question) ---
-        cur.execute(
+        conv1 = _insert_returning_id(conn,
             """INSERT INTO conversations
                (client_id, property_id, telegram_chat_id,
                 status, owner, priority, created_at, updated_at)
@@ -37,9 +48,8 @@ def _seed() -> None:
             ("demo_client", "apt_centro_01", 100001,
              "bot_resolved", "bot", "normal", now, now),
         )
-        conv1 = cur.lastrowid
 
-        cur.execute(
+        conn.execute(
             """INSERT INTO interactions
                (conversation_id, user_message, category, reason, action,
                 urgent, escalate, reply_text, ack_text, created_at)
@@ -51,7 +61,7 @@ def _seed() -> None:
              None, now),
         )
 
-        cur.execute(
+        conn.execute(
             """INSERT INTO interactions
                (conversation_id, user_message, category, reason, action,
                 urgent, escalate, reply_text, ack_text, created_at)
@@ -64,7 +74,7 @@ def _seed() -> None:
         )
 
         # --- Conversacion 2: escalada al host (maintenance) ---
-        cur.execute(
+        conv2 = _insert_returning_id(conn,
             """INSERT INTO conversations
                (client_id, property_id, telegram_chat_id,
                 status, owner, priority, created_at, updated_at)
@@ -72,9 +82,8 @@ def _seed() -> None:
             ("demo_client", "apt_centro_01", 100002,
              "host_pending", "host", "high", now, now),
         )
-        conv2 = cur.lastrowid
 
-        cur.execute(
+        inter2 = _insert_returning_id(conn,
             """INSERT INTO interactions
                (conversation_id, user_message, category, reason, action,
                 urgent, escalate, reply_text, ack_text, created_at)
@@ -86,10 +95,9 @@ def _seed() -> None:
              "Entendido, he avisado a Ana y te responderemos lo antes posible.",
              now),
         )
-        inter2 = cur.lastrowid
 
         # Alerta asociada (pendiente)
-        cur.execute(
+        conn.execute(
             """INSERT INTO alerts
                (interaction_id, conversation_id, reason,
                 translated_text, draft_text, urgent, created_at)
@@ -102,7 +110,7 @@ def _seed() -> None:
         )
 
         # --- Conversacion 3: urgente (locked out) ---
-        cur.execute(
+        conv3 = _insert_returning_id(conn,
             """INSERT INTO conversations
                (client_id, property_id, telegram_chat_id,
                 status, owner, priority, created_at, updated_at)
@@ -110,9 +118,8 @@ def _seed() -> None:
             ("demo_client", "apt_playa_02", 100003,
              "urgent", "host", "high", now, now),
         )
-        conv3 = cur.lastrowid
 
-        cur.execute(
+        inter3 = _insert_returning_id(conn,
             """INSERT INTO interactions
                (conversation_id, user_message, category, reason, action,
                 urgent, escalate, reply_text, ack_text, created_at)
@@ -124,10 +131,9 @@ def _seed() -> None:
              "I understand the urgency. I've notified the host and someone will contact you immediately.",
              now),
         )
-        inter3 = cur.lastrowid
 
         # Alerta urgente (pendiente)
-        cur.execute(
+        conn.execute(
             """INSERT INTO alerts
                (interaction_id, conversation_id, reason,
                 translated_text, draft_text, urgent, created_at)
@@ -140,7 +146,7 @@ def _seed() -> None:
         )
 
         # --- Conversacion 4: info normal en espanol ---
-        cur.execute(
+        conv4 = _insert_returning_id(conn,
             """INSERT INTO conversations
                (client_id, property_id, telegram_chat_id,
                 status, owner, priority, created_at, updated_at)
@@ -148,9 +154,8 @@ def _seed() -> None:
             ("demo_client", "apt_playa_02", 100004,
              "bot_resolved", "bot", "normal", now, now),
         )
-        conv4 = cur.lastrowid
 
-        cur.execute(
+        conn.execute(
             """INSERT INTO interactions
                (conversation_id, user_message, category, reason, action,
                 urgent, escalate, reply_text, ack_text, created_at)
@@ -164,7 +169,7 @@ def _seed() -> None:
         )
 
         # --- Alerta resuelta (ejemplo historico) ---
-        cur.execute(
+        conv5 = _insert_returning_id(conn,
             """INSERT INTO conversations
                (client_id, property_id, telegram_chat_id,
                 status, owner, priority, created_at, updated_at)
@@ -172,9 +177,8 @@ def _seed() -> None:
             ("demo_client", "apt_centro_01", 100005,
              "bot_resolved", "bot", "normal", now, now),
         )
-        conv5 = cur.lastrowid
 
-        cur.execute(
+        inter5 = _insert_returning_id(conn,
             """INSERT INTO interactions
                (conversation_id, user_message, category, reason, action,
                 urgent, escalate, reply_text, ack_text, created_at)
@@ -186,9 +190,8 @@ def _seed() -> None:
              "I've let the host know about the hot water issue. They will get back to you shortly.",
              now),
         )
-        inter5 = cur.lastrowid
 
-        cur.execute(
+        conn.execute(
             """INSERT INTO alerts
                (interaction_id, conversation_id, reason,
                 translated_text, draft_text, urgent, resolved_at, created_at)
@@ -200,14 +203,7 @@ def _seed() -> None:
              0, now, now),
         )
 
-        conn.commit()
-        print(f"[SEED] Datos demo insertados: 5 conversaciones, 6 interacciones, 3 alertas.")
-
-    except Exception as e:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
+    print(f"[SEED] Datos demo insertados: 5 conversaciones, 6 interacciones, 3 alertas.")
 
 
 def seed_if_empty() -> None:
