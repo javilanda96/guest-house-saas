@@ -23,6 +23,7 @@ from typing import Optional
 
 from services.database import (
     DB_PATH,
+    _USE_PG,
     init_db,
     get_conversations,
     get_conversation_interactions,
@@ -84,8 +85,14 @@ def panel_root():
 @app.get("/api/health")
 def health():
     """Verifica que la API arranca y la DB existe."""
+    if _USE_PG:
+        return {
+            "status": "ok",
+            "backend": "postgresql",
+        }
     return {
         "status": "ok",
+        "backend": "sqlite",
         "db_path": str(DB_PATH),
         "db_exists": DB_PATH.exists(),
     }
