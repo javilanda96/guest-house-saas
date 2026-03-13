@@ -3,10 +3,16 @@
 # Un unico servicio web que ejecuta:
 #   - bot.py en background (polling Telegram)
 #   - uvicorn en foreground (API + panel admin)
-# Ambos comparten el mismo data/bot.db via SQLite.
+# Ambos comparten la misma base de datos PostgreSQL (persistente).
 #
 # Uso: Render detecta este archivo automaticamente al conectar el repo.
 # Tambien se puede importar manualmente desde https://render.com/blueprints
+
+databases:
+  - name: booking-bot-db
+    plan: free
+    databaseName: booking_bot
+    user: booking_bot
 
 services:
   - type: web
@@ -17,3 +23,7 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.12"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: booking-bot-db
+          property: connectionString
