@@ -9,9 +9,18 @@ Uso programatico (desde api.py):
     seed_if_empty()              # No-op si ya hay datos
 
 Seguro de ejecutar multiples veces: solo inserta si conversations esta vacia.
+
+Control por entorno:
+    SEED_DEMO=true  -> inserta datos demo si la DB esta vacia.
+    (sin variable)  -> solo inicializa tablas, nunca inserta demo data.
+    Ejecucion directa (python seed_demo.py) siempre inserta (util en desarrollo).
 """
 
+import os
+
 from services.database import init_db, _conn, _now, _USE_PG
+
+_SEED_ENABLED = os.environ.get("SEED_DEMO", "").lower() in ("true", "1", "yes")
 
 
 def _is_empty() -> bool:
@@ -207,8 +216,19 @@ def _seed() -> None:
 
 
 def seed_if_empty() -> None:
-    """Puebla la DB con datos demo si esta vacia. No-op si ya tiene datos."""
+    """
+    Inicializa la DB y opcionalmente inserta datos demo.
+
+    Solo inserta datos demo si:
+    - SEED_DEMO=true esta definido, Y
+    - la DB esta vacia (0 conversaciones).
+
+    Sin SEED_DEMO, solo crea las tablas.
+    """
     init_db()
+    if not _SEED_ENABLED:
+        print("[SEED] Seeding deshabilitado (SEED_DEMO no definido).")
+        return
     if _is_empty():
         _seed()
     else:
@@ -216,4 +236,9 @@ def seed_if_empty() -> None:
 
 
 if __name__ == "__main__":
-    seed_if_empty()
+    # Ejecucion directa siempre inserta (desarrollo local).
+    init_db()
+    if _is_empty():
+        _seed()
+    else:
+        print("[SEED] DB ya contiene datos, saltando seed.")

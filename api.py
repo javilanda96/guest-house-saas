@@ -7,16 +7,23 @@ para consumo desde un panel de administración.
 - Lectura: conversaciones, interacciones, alertas.
 - Escritura operativa: resolver alertas, cambiar estado/owner de conversaciones.
 - Proceso independiente: no interfiere con bot.py.
-- Comparte data/bot.db con el bot via SQLite.
 
-Arrancar:
+Seguridad:
+- Si PANEL_PASSWORD esta definida -> HTTP Basic Auth en todo excepto /api/health.
+- Si no esta definida (local dev) -> sin autenticacion.
+- Si PANEL_PASSWORD esta definida -> /docs deshabilitado.
+
+Arrancar local:
     .venv/Scripts/uvicorn api:app --port 8000 --reload
 """
 
+import os
+import secrets
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
@@ -36,12 +43,53 @@ from services.database import (
 )
 from seed_demo import seed_if_empty
 
+# =========================================================
+# Auth configuration
+# =========================================================
+
+_PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD")
+_AUTH_ENABLED = _PANEL_PASSWORD is not None and len(_PANEL_PASSWORD) > 0
+
+security = HTTPBasic()
+
+
+def _verify_auth(credentials: HTTPBasicCredentials = Depends(security)):
+    """
+    Verifica HTTP Basic Auth.
+    Username: 'admin' (fijo).
+    Password: valor de PANEL_PASSWORD.
+    Usa secrets.compare_digest para evitar timing attacks.
+    """
+    correct_user = secrets.compare_digest(credentials.username, "admin")
+    correct_pass = secrets.compare_digest(credentials.password, _PANEL_PASSWORD)
+    if not (correct_user and correct_pass):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciales incorrectas",
+            headers={"WWW-Authenticate": "Basic"},
+        )
+
+
+# Solo aplicar auth si PANEL_PASSWORD esta definida.
+# En desarrollo local (sin PANEL_PASSWORD) no hay autenticacion.
+_auth_deps = [Depends(_verify_auth)] if _AUTH_ENABLED else []
+
+
+# =========================================================
+# App configuration
+# =========================================================
+
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 
+# Deshabilitar /docs en produccion (cuando auth esta activo).
+# Los desarrolladores pueden acceder a /docs localmente sin password.
 app = FastAPI(
     title="Booking Bot API",
     description="API operativa sobre las conversaciones y alertas del bot.",
-    version="0.2.0",
+    version="0.3.0",
+    docs_url=None if _AUTH_ENABLED else "/docs",
+    redoc_url=None,
+    openapi_url=None if _AUTH_ENABLED else "/openapi.json",
 )
 
 # Servir archivos estaticos del panel
@@ -51,7 +99,7 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 @app.on_event("startup")
 def on_startup() -> None:
     """Asegura que la DB y las tablas existen al arrancar la API.
-    Si la DB esta vacia, inserta datos demo para que el panel no aparezca vacio."""
+    Si la DB esta vacia y SEED_DEMO=true, inserta datos demo."""
     seed_if_empty()  # Llama init_db() internamente
 
 
@@ -71,7 +119,7 @@ class UpdateOwnerRequest(BaseModel):
 # =========================================================
 
 
-@app.get("/", include_in_schema=False)
+@app.get("/", include_in_schema=False, dependencies=_auth_deps)
 def panel_root():
     """Sirve el panel principal."""
     return FileResponse(str(_STATIC_DIR / "index.html"))
@@ -84,7 +132,7 @@ def panel_root():
 
 @app.get("/api/health")
 def health():
-    """Verifica que la API arranca y la DB existe."""
+    """Verifica que la API arranca y la DB existe. Sin autenticacion (health check de Render)."""
     if _USE_PG:
         return {
             "status": "ok",
@@ -98,7 +146,7 @@ def health():
     }
 
 
-@app.get("/api/conversations")
+@app.get("/api/conversations", dependencies=_auth_deps)
 def list_conversations(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -107,7 +155,7 @@ def list_conversations(
     return get_conversations(limit=limit, offset=offset)
 
 
-@app.get("/api/conversations/{conversation_id}/interactions")
+@app.get("/api/conversations/{conversation_id}/interactions", dependencies=_auth_deps)
 def list_interactions(
     conversation_id: int,
     limit: int = Query(default=50, ge=1, le=200),
@@ -124,7 +172,7 @@ def list_interactions(
     return result
 
 
-@app.get("/api/alerts")
+@app.get("/api/alerts", dependencies=_auth_deps)
 def list_alerts(
     status: Optional[str] = Query(
         default=None,
@@ -147,7 +195,7 @@ def list_alerts(
 # =========================================================
 
 
-@app.patch("/api/alerts/{alert_id}/resolve")
+@app.patch("/api/alerts/{alert_id}/resolve", dependencies=_auth_deps)
 def patch_resolve_alert(alert_id: int):
     """Marca una alerta como resuelta (resolved_at = ahora UTC)."""
     try:
@@ -160,7 +208,7 @@ def patch_resolve_alert(alert_id: int):
     return result
 
 
-@app.patch("/api/conversations/{conversation_id}/status")
+@app.patch("/api/conversations/{conversation_id}/status", dependencies=_auth_deps)
 def patch_conversation_status(
     conversation_id: int,
     body: UpdateStatusRequest,
@@ -180,7 +228,7 @@ def patch_conversation_status(
     return result
 
 
-@app.patch("/api/conversations/{conversation_id}/owner")
+@app.patch("/api/conversations/{conversation_id}/owner", dependencies=_auth_deps)
 def patch_conversation_owner(
     conversation_id: int,
     body: UpdateOwnerRequest,
