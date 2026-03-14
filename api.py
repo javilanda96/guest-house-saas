@@ -38,6 +38,8 @@ from services.database import (
     resolve_alert,
     update_conversation_status,
     update_conversation_owner,
+    get_properties,
+    get_property_detail,
     VALID_CONV_STATUSES,
     VALID_CONV_OWNERS,
 )
@@ -188,6 +190,26 @@ def list_alerts(
             detail="status must be 'pending', 'resolved', or omitted",
         )
     return get_alerts(status=status, limit=limit, offset=offset)
+
+
+@app.get("/api/properties", dependencies=_auth_deps)
+def list_properties(
+    client_id: Optional[str] = Query(
+        default=None,
+        description="Filtrar por client_id. Sin valor = todas.",
+    ),
+):
+    """Lista propiedades registradas, opcionalmente filtradas por cliente."""
+    return get_properties(client_id=client_id)
+
+
+@app.get("/api/properties/{property_db_id}", dependencies=_auth_deps)
+def property_detail(property_db_id: int):
+    """Detalle de una propiedad con sus entradas de knowledge base."""
+    result = get_property_detail(property_db_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return result
 
 
 # =========================================================

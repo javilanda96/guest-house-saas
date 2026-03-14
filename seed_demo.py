@@ -18,7 +18,7 @@ Control por entorno:
 
 import os
 
-from services.database import init_db, _conn, _now, _USE_PG
+from services.database import init_db, _conn, _now, _USE_PG, upsert_property_from_dict
 
 _SEED_ENABLED = os.environ.get("SEED_DEMO", "").lower() in ("true", "1", "yes")
 
@@ -212,7 +212,45 @@ def _seed() -> None:
              0, now, now),
         )
 
-    print(f"[SEED] Datos demo insertados: 5 conversaciones, 6 interacciones, 3 alertas.")
+    # --- Propiedades demo ---
+    upsert_property_from_dict(
+        client_id="demo_client",
+        property_id="apt_centro_01",
+        config={
+            "property_name": "Apartamento Centro 01",
+            "contact_name": "Ana García",
+            "contact_phone": "+34 600 111 222",
+            "default_language": "es",
+            "city": "Madrid",
+            "country": "ES",
+        },
+        knowledge={
+            "wifi": "Red: AptCentro-Guest / Contraseña: Welcome2024!",
+            "checkout": "Checkout a las 11:00. Dejar llaves en la mesa de la cocina.",
+            "parking": "No hay parking privado. Parking público más cercano: Plaza Mayor (2 min andando).",
+        },
+    )
+
+    upsert_property_from_dict(
+        client_id="demo_client",
+        property_id="apt_playa_02",
+        config={
+            "property_name": "Apartamento Playa 02",
+            "contact_name": "Carlos López",
+            "contact_phone": "+34 600 123 456",
+            "default_language": "en",
+            "city": "Málaga",
+            "country": "ES",
+        },
+        knowledge={
+            "wifi": "Network: PlayaApt-Guest / Password: Beach2024!",
+            "checkout": "Checkout at 10:00 AM. Leave keys in the lockbox by the door.",
+            "beach": "Playa de la Malagueta is 3 min walk. Beach towels are in the hallway closet.",
+            "restaurants": "La Tasca del Puerto (5 min walk, seafood). Casa María (tapas).",
+        },
+    )
+
+    print(f"[SEED] Datos demo insertados: 5 conversaciones, 6 interacciones, 3 alertas, 2 propiedades.")
 
 
 def seed_if_empty() -> None:
