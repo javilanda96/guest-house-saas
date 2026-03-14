@@ -15,6 +15,9 @@
   <h1>Inbox</h1>
 
   <div class="inbox-tabs" id="tabs"></div>
+  <input type="text" id="search" class="search-input"
+         placeholder="Buscar por chat ID, propiedad o mensaje..."
+         oninput="renderList()">
   <div id="content"><p class="loading">Cargando...</p></div>
 
   <script src="/static/js/api.js"></script>
@@ -47,15 +50,24 @@
     }
 
     function filterConvs(tab) {
+      let list = allConvs;
       if (tab === "attention") {
-        return allConvs.filter(c =>
+        list = list.filter(c =>
           c.status === "urgent" || c.status === "host_pending"
         );
+      } else if (tab === "resolved") {
+        list = list.filter(c => c.status === "bot_resolved");
       }
-      if (tab === "resolved") {
-        return allConvs.filter(c => c.status === "bot_resolved");
+      // Busqueda por texto: chat ID, property_id o ultimo mensaje
+      const q = (document.getElementById("search").value || "").trim().toLowerCase();
+      if (q) {
+        list = list.filter(c =>
+          String(c.telegram_chat_id).includes(q) ||
+          (c.property_id || "").toLowerCase().includes(q) ||
+          (c.last_user_message || "").toLowerCase().includes(q)
+        );
       }
-      return allConvs; // "all"
+      return list;
     }
 
     function countAttention() {

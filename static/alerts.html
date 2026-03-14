@@ -17,14 +17,19 @@
   <div class="filters">
     <button onclick="setFilter(null)" id="f-all" class="active">Todas</button>
     <button onclick="setFilter('pending')" id="f-pending">Pendientes</button>
+    <button onclick="setFilter('urgent')" id="f-urgent">Urgentes</button>
     <button onclick="setFilter('resolved')" id="f-resolved">Resueltas</button>
   </div>
+  <input type="text" id="search" class="search-input"
+         placeholder="Buscar por chat ID, propiedad o motivo..."
+         oninput="applySearch()">
 
   <div id="content"><p class="loading">Cargando...</p></div>
 
   <script src="/static/js/api.js"></script>
   <script>
     let currentFilter = null;
+    let allAlerts = [];
 
     function setFilter(f) {
       currentFilter = f;
@@ -36,21 +41,45 @@
 
     async function load() {
       try {
-        const qs = currentFilter ? `?status=${currentFilter}` : "";
+        // Filtro pending/resolved via backend; urgent via client-side
+        const backendFilter = (currentFilter === "pending" || currentFilter === "resolved")
+          ? currentFilter : null;
+        const qs = backendFilter ? `?status=${backendFilter}` : "";
         const data = await API.get(`/api/alerts${qs}`);
-        if (!data.alerts.length) {
-          document.getElementById("content").innerHTML = "<p>No hay alertas.</p>";
-          return;
+        allAlerts = data.alerts;
+
+        // Filtro urgent client-side
+        if (currentFilter === "urgent") {
+          allAlerts = allAlerts.filter(a => a.urgent);
         }
-        render(data.alerts);
+
+        applySearch();
       } catch (e) {
-        document.getElementById("content").innerHTML = `<p class="error">${e.message}</p>`;
+        document.getElementById("content").innerHTML = `<p class="error">${esc(e.message)}</p>`;
       }
+    }
+
+    function applySearch() {
+      const q = (document.getElementById("search").value || "").trim().toLowerCase();
+      let filtered = allAlerts;
+      if (q) {
+        filtered = filtered.filter(a =>
+          String(a.telegram_chat_id).includes(q) ||
+          (a.property_id || "").toLowerCase().includes(q) ||
+          (a.reason || "").toLowerCase().includes(q)
+        );
+      }
+      if (!filtered.length) {
+        document.getElementById("content").innerHTML = "<p>No hay alertas.</p>";
+        return;
+      }
+      render(filtered);
     }
 
     function render(alerts) {
       let html = `<table>
         <thead><tr>
+          <th>Propiedad</th>
           <th>Chat ID</th>
           <th>Motivo</th>
           <th>Urgente</th>
@@ -74,14 +103,17 @@
           ? '<button disabled>Resuelta</button>'
           : `<button class="btn-success" onclick="resolveAlert(${a.id})">Resolver</button>`;
 
+        const prop = esc(fmtProperty(a.property_id));
+
         html += `<tr>
+          <td>${prop}</td>
           <td><a href="/static/conversation.html?id=${a.conversation_id}">${a.telegram_chat_id}</a></td>
           <td>${esc(a.reason || "-")}</td>
           <td>${urgBadge}</td>
           <td>${esc(truncate(a.translated_text, 60))}</td>
           <td>${esc(truncate(a.draft_text, 60))}</td>
           <td>${statusBadge}</td>
-          <td>${fmtDate(a.created_at)}</td>
+          <td>${timeAgo(a.created_at)}</td>
           <td>${action}</td>
         </tr>`;
       }
@@ -97,18 +129,6 @@
       } catch (e) {
         alert("Error: " + e.message);
       }
-    }
-
-    function esc(s) {
-      if (!s) return "-";
-      const d = document.createElement("div");
-      d.textContent = s;
-      return d.innerHTML;
-    }
-
-    function truncate(s, max) {
-      if (!s) return "";
-      return s.length > max ? s.substring(0, max) + "..." : s;
     }
 
     load();

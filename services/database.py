@@ -570,7 +570,8 @@ def get_alerts(
             f"""
             SELECT
                 a.*,
-                c.telegram_chat_id
+                c.telegram_chat_id,
+                c.property_id
             FROM alerts a
             JOIN conversations c ON c.id = a.conversation_id
             {where}

@@ -370,6 +370,28 @@ button:disabled {
 }
 
 /* ============================
+   Search input
+   ============================ */
+
+.search-input {
+  display: block;
+  width: 100%;
+  max-width: 480px;
+  padding: 8px 12px;
+  margin: 12px 0;
+  border: 1px solid #ddd;
+  border-radius: 6px;
+  font-size: 14px;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+.search-input:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px rgba(74, 144, 217, 0.15);
+}
+
+/* ============================
    Mobile responsive (≤600px)
    ============================ */
 
