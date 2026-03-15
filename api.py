@@ -40,8 +40,11 @@ from services.database import (
     update_conversation_owner,
     get_properties,
     get_property_detail,
+    update_property_profile,
+    update_knowledge_content,
     VALID_CONV_STATUSES,
     VALID_CONV_OWNERS,
+    VALID_KNOWLEDGE_TOPICS,
 )
 from seed_demo import seed_if_empty
 
@@ -114,6 +117,17 @@ class UpdateStatusRequest(BaseModel):
 
 class UpdateOwnerRequest(BaseModel):
     owner: str
+
+class UpdatePropertyRequest(BaseModel):
+    property_name: str
+    contact_name: Optional[str] = None
+    contact_phone: Optional[str] = None
+    default_language: str = "en"
+    city: Optional[str] = None
+    country: Optional[str] = None
+
+class UpdateKnowledgeRequest(BaseModel):
+    content: str
 
 
 # =========================================================
@@ -207,6 +221,37 @@ def list_properties(
 def property_detail(property_db_id: int):
     """Detalle de una propiedad con sus entradas de knowledge base."""
     result = get_property_detail(property_db_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return result
+
+
+@app.put("/api/properties/{property_db_id}", dependencies=_auth_deps)
+def put_property(property_db_id: int, body: UpdatePropertyRequest):
+    """Actualiza los campos de perfil de una propiedad."""
+    result = update_property_profile(
+        property_db_id,
+        property_name=body.property_name,
+        contact_name=body.contact_name,
+        contact_phone=body.contact_phone,
+        default_language=body.default_language,
+        city=body.city,
+        country=body.country,
+    )
+    if result is None:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return result
+
+
+@app.put("/api/properties/{property_db_id}/knowledge/{topic}", dependencies=_auth_deps)
+def put_knowledge_topic(property_db_id: int, topic: str, body: UpdateKnowledgeRequest):
+    """Actualiza el contenido de un topic en el knowledge base de una propiedad."""
+    if topic not in VALID_KNOWLEDGE_TOPICS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid topic '{topic}'. Allowed: {sorted(VALID_KNOWLEDGE_TOPICS)}",
+        )
+    result = update_knowledge_content(property_db_id, topic, body.content)
     if result is None:
         raise HTTPException(status_code=404, detail="Property not found")
     return result

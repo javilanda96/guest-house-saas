@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Propiedades - Booking Bot</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav>
+    <a href="/">Inbox</a>
+    <a href="/static/alerts.html">Alertas</a>
+    <a href="/static/properties.html" class="active">Propiedades</a>
+  </nav>
+
+  <h1>Propiedades</h1>
+
+  <div class="prop-layout">
+    <!-- Left: property list -->
+    <div class="prop-list" id="propList">
+      <p class="loading">Cargando...</p>
+    </div>
+
+    <!-- Right: property editor -->
+    <div class="prop-editor" id="propEditor">
+      <div class="prop-editor-empty">
+        <p>Selecciona una propiedad para editar</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const TOPICS = [
+      { key: "faq",         label: "FAQ" },
+      { key: "checkin",     label: "Check-in" },
+      { key: "house_rules", label: "Normas de la casa" },
+      { key: "emergencies", label: "Emergencias" },
+      { key: "host_notes",  label: "Notas del host" },
+      { key: "local_tips",  label: "Tips locales" },
+    ];
+
+    let allProps = [];
+    let selectedId = null;
+
+    // ── Load property list ──────────────────────────
+    async function loadList() {
+      try {
+        const data = await API.get("/api/properties");
+        allProps = data.properties;
+        renderList();
+      } catch (e) {
+        document.getElementById("propList").innerHTML =
+          `<p class="error">${esc(e.message)}</p>`;
+      }
+    }
+
+    function renderList() {
+      if (!allProps.length) {
+        document.getElementById("propList").innerHTML =
+          '<div class="prop-editor-empty"><p>No hay propiedades registradas</p></div>';
+        return;
+      }
+
+      let html = "";
+      for (const p of allProps) {
+        const active = p.id === selectedId ? " prop-card-active" : "";
+        html += `
+          <div class="prop-card${active}" onclick="selectProperty(${p.id})">
+            <div class="prop-card-name">${esc(p.property_name)}</div>
+            <div class="prop-card-meta">
+              ${esc(p.city || "")}${p.city && p.country ? ", " : ""}${esc(p.country || "")}
+            </div>
+            <div class="prop-card-id">${esc(p.property_id)}</div>
+          </div>`;
+      }
+      document.getElementById("propList").innerHTML = html;
+    }
+
+    // ── Select & load detail ────────────────────────
+    async function selectProperty(id) {
+      selectedId = id;
+      renderList();
+      document.getElementById("propEditor").innerHTML =
+        '<p class="loading">Cargando...</p>';
+
+      try {
+        const detail = await API.get(`/api/properties/${id}`);
+        renderEditor(detail);
+      } catch (e) {
+        document.getElementById("propEditor").innerHTML =
+          `<p class="error">${esc(e.message)}</p>`;
+      }
+    }
+
+    // ── Render editor ───────────────────────────────
+    function renderEditor(prop) {
+      // Build a map of existing knowledge entries by topic
+      const keMap = {};
+      for (const ke of prop.knowledge || []) {
+        keMap[ke.topic] = ke.content;
+      }
+
+      let topicsHtml = "";
+      for (const t of TOPICS) {
+        const val = keMap[t.key] || "";
+        topicsHtml += `
+          <div class="prop-section">
+            <div class="prop-section-header">
+              <span class="prop-section-title">${esc(t.label)}</span>
+              <span class="prop-save-status" id="ks-${t.key}"></span>
+            </div>
+            <textarea id="ke-${t.key}" class="prop-textarea"
+                      placeholder="Sin contenido">${esc(val)}</textarea>
+            <button class="btn-primary" onclick="saveKnowledge('${t.key}')">Guardar</button>
+          </div>`;
+      }
+
+      document.getElementById("propEditor").innerHTML = `
+        <div class="prop-section">
+          <div class="prop-section-header">
+            <span class="prop-section-title">Perfil de la propiedad</span>
+            <span class="prop-save-status" id="ps-profile"></span>
+          </div>
+          <div class="prop-form">
+            <label>Nombre
+              <input id="f-property_name" type="text" value="${attr(prop.property_name || "")}">
+            </label>
+            <label>Ciudad
+              <input id="f-city" type="text" value="${attr(prop.city || "")}">
+            </label>
+            <label>Pais
+              <input id="f-country" type="text" value="${attr(prop.country || "")}">
+            </label>
+            <label>Contacto
+              <input id="f-contact_name" type="text" value="${attr(prop.contact_name || "")}">
+            </label>
+            <label>Telefono
+              <input id="f-contact_phone" type="text" value="${attr(prop.contact_phone || "")}">
+            </label>
+            <label>Idioma por defecto
+              <select id="f-default_language">
+                <option value="en" ${prop.default_language === "en" ? "selected" : ""}>English</option>
+                <option value="es" ${prop.default_language === "es" ? "selected" : ""}>Espanol</option>
+                <option value="fr" ${prop.default_language === "fr" ? "selected" : ""}>Francais</option>
+                <option value="de" ${prop.default_language === "de" ? "selected" : ""}>Deutsch</option>
+                <option value="it" ${prop.default_language === "it" ? "selected" : ""}>Italiano</option>
+                <option value="pt" ${prop.default_language === "pt" ? "selected" : ""}>Portugues</option>
+              </select>
+            </label>
+          </div>
+          <button class="btn-primary" onclick="saveProfile()">Guardar perfil</button>
+        </div>
+
+        <h2 class="prop-knowledge-title">Knowledge Base</h2>
+        ${topicsHtml}
+      `;
+    }
+
+    // ── Save profile ────────────────────────────────
+    async function saveProfile() {
+      const status = document.getElementById("ps-profile");
+      status.textContent = "Guardando...";
+      status.className = "prop-save-status";
+
+      try {
+        await API.put(`/api/properties/${selectedId}`, {
+          property_name:    document.getElementById("f-property_name").value,
+          contact_name:     document.getElementById("f-contact_name").value || null,
+          contact_phone:    document.getElementById("f-contact_phone").value || null,
+          default_language: document.getElementById("f-default_language").value,
+          city:             document.getElementById("f-city").value || null,
+          country:          document.getElementById("f-country").value || null,
+        });
+
+        status.textContent = "Guardado";
+        status.className = "prop-save-status prop-save-ok";
+        // Update name in list
+        loadList();
+      } catch (e) {
+        status.textContent = "Error: " + e.message;
+        status.className = "prop-save-status prop-save-err";
+      }
+    }
+
+    // ── Save knowledge topic ────────────────────────
+    async function saveKnowledge(topic) {
+      const status = document.getElementById(`ks-${topic}`);
+      status.textContent = "Guardando...";
+      status.className = "prop-save-status";
+
+      try {
+        const content = document.getElementById(`ke-${topic}`).value;
+        await API.put(`/api/properties/${selectedId}/knowledge/${topic}`, { content });
+
+        status.textContent = "Guardado";
+        status.className = "prop-save-status prop-save-ok";
+      } catch (e) {
+        status.textContent = "Error: " + e.message;
+        status.className = "prop-save-status prop-save-err";
+      }
+    }
+
+    // ── Helpers ─────────────────────────────────────
+
+    /** Escapa para atributos HTML (value="...") */
+    function attr(s) {
+      return (s || "").replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    }
+
+    loadList();
+  </script>
+</body>
+</html>

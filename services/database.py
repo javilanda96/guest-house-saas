@@ -892,3 +892,103 @@ def import_property_from_filesystem(client_id: str, property_id: str) -> Optiona
         config=config,
         knowledge=knowledge,
     )
+
+
+# =========================================================
+# Escritura — Propiedades (Milestone 2B: editor)
+# =========================================================
+
+# Temas fijos permitidos en el knowledge base.
+VALID_KNOWLEDGE_TOPICS = frozenset([
+    "faq", "checkin", "house_rules",
+    "emergencies", "host_notes", "local_tips",
+])
+
+
+def update_property_profile(
+    property_db_id: int,
+    *,
+    property_name: str,
+    contact_name: Optional[str],
+    contact_phone: Optional[str],
+    default_language: str,
+    city: Optional[str],
+    country: Optional[str],
+) -> Optional[Dict[str, Any]]:
+    """
+    Actualiza los campos de perfil de una propiedad existente.
+    Devuelve la fila actualizada o None si no existe.
+    """
+    now = _now()
+    with _conn() as conn:
+        existing = conn.execute(
+            "SELECT id FROM properties WHERE id = ?",
+            (property_db_id,),
+        ).fetchone()
+        if existing is None:
+            return None
+
+        conn.execute(
+            """UPDATE properties
+               SET property_name = ?, contact_name = ?, contact_phone = ?,
+                   default_language = ?, city = ?, country = ?,
+                   updated_at = ?
+               WHERE id = ?""",
+            (property_name, contact_name, contact_phone,
+             default_language, city, country, now, property_db_id),
+        )
+
+        updated = conn.execute(
+            "SELECT * FROM properties WHERE id = ?",
+            (property_db_id,),
+        ).fetchone()
+
+    return dict(updated)
+
+
+def update_knowledge_content(
+    property_db_id: int,
+    topic: str,
+    content: str,
+) -> Optional[Dict[str, Any]]:
+    """
+    Actualiza (o crea) el contenido de un topic en el knowledge base.
+    El topic debe estar en VALID_KNOWLEDGE_TOPICS.
+    Devuelve la fila de knowledge_entry, o None si la propiedad no existe.
+    """
+    now = _now()
+    with _conn() as conn:
+        prop = conn.execute(
+            "SELECT id FROM properties WHERE id = ?",
+            (property_db_id,),
+        ).fetchone()
+        if prop is None:
+            return None
+
+        existing = conn.execute(
+            "SELECT id FROM knowledge_entries WHERE property_db_id = ? AND topic = ?",
+            (property_db_id, topic),
+        ).fetchone()
+
+        if existing:
+            conn.execute(
+                "UPDATE knowledge_entries SET content = ?, updated_at = ? WHERE id = ?",
+                (content, now, existing["id"]),
+            )
+            row = conn.execute(
+                "SELECT * FROM knowledge_entries WHERE id = ?",
+                (existing["id"],),
+            ).fetchone()
+        else:
+            conn.execute(
+                """INSERT INTO knowledge_entries
+                   (property_db_id, topic, content, updated_at)
+                   VALUES (?, ?, ?, ?)""",
+                (property_db_id, topic, content, now),
+            )
+            row = conn.execute(
+                "SELECT * FROM knowledge_entries WHERE property_db_id = ? AND topic = ?",
+                (property_db_id, topic),
+            ).fetchone()
+
+    return dict(row)

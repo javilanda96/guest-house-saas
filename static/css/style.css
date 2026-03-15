@@ -451,4 +451,136 @@ button:disabled {
 
   /* Tables: smaller text */
   th, td { padding: 8px 6px; font-size: 13px; }
+
+  /* Property editor: stack vertically */
+  .prop-layout { flex-direction: column; }
+  .prop-list { max-width: 100%; border-right: none; border-bottom: 1px solid #e5e7eb; padding-bottom: 12px; }
 }
+
+/* ============================
+   Property editor (Milestone 2B)
+   ============================ */
+
+.prop-layout {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+}
+
+.prop-list {
+  min-width: 240px;
+  max-width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border-right: 1px solid #e5e7eb;
+  padding-right: 20px;
+}
+
+.prop-card {
+  background: #fff;
+  border-radius: 6px;
+  padding: 10px 14px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  cursor: pointer;
+  border-left: 3px solid transparent;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.prop-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.12); }
+.prop-card-active {
+  border-left-color: #0066cc;
+  background: #f0f7ff;
+}
+.prop-card-name { font-weight: 600; font-size: 14px; color: #1a1a1a; }
+.prop-card-meta { font-size: 12px; color: #6b7280; margin-top: 2px; }
+.prop-card-id   { font-size: 11px; color: #9ca3af; margin-top: 2px; font-family: monospace; }
+
+.prop-editor {
+  flex: 1;
+  min-width: 0;
+}
+.prop-editor-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #9ca3af;
+  font-size: 14px;
+}
+
+.prop-section {
+  background: #fff;
+  border-radius: 6px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin-bottom: 16px;
+}
+.prop-section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+.prop-section-title {
+  font-weight: 700;
+  font-size: 14px;
+  color: #374151;
+}
+
+.prop-form {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.prop-form label {
+  display: flex;
+  flex-direction: column;
+  font-size: 12px;
+  font-weight: 600;
+  color: #666;
+  text-transform: uppercase;
+}
+.prop-form input,
+.prop-form select {
+  margin-top: 4px;
+  padding: 7px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+}
+.prop-form input:focus,
+.prop-form select:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px rgba(74,144,217,0.15);
+}
+
+.prop-textarea {
+  display: block;
+  width: 100%;
+  min-height: 100px;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 14px;
+  font-family: inherit;
+  resize: vertical;
+  margin-bottom: 10px;
+}
+.prop-textarea:focus {
+  outline: none;
+  border-color: #4a90d9;
+  box-shadow: 0 0 0 2px rgba(74,144,217,0.15);
+}
+
+.prop-knowledge-title {
+  font-size: 16px;
+  margin: 20px 0 12px;
+}
+
+.prop-save-status {
+  font-size: 12px;
+  font-weight: 600;
+}
+.prop-save-ok  { color: #059669; }
+.prop-save-err { color: #dc2626; }

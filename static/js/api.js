@@ -10,6 +10,19 @@ const API = {
     return res.json();
   },
 
+  async put(path, body) {
+    const res = await fetch(path, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.detail || `PUT ${path}: ${res.status}`);
+    }
+    return res.json();
+  },
+
   async patch(path, body = null) {
     const opts = {
       method: "PATCH",
