@@ -245,6 +245,10 @@ def main() -> None:
                     continue
 
                 if action in {"reply_and_alert", "alert_staff_urgent"}:
+                    print(
+                        f"[alerts] accion={action} urgent={urgent} "
+                        f"destinos={len(ALERT_CHAT_IDS)} chat_id_origen={chat_id}"
+                    )
                     if ALERT_CHAT_IDS:
                         alert_text = build_alert_text(
                             chat_id=chat_id,
@@ -255,7 +259,14 @@ def main() -> None:
                             urgent=urgent,
                         )
                         for cid in ALERT_CHAT_IDS:
-                            send_bot_message(cid, alert_text)
+                            print(f"[alerts] enviando a destino={cid}")
+                            try:
+                                channel.send_message(cid, alert_text)
+                                print(f"[alerts] ok destino={cid}")
+                            except Exception as e:
+                                print(f"[alerts] ERROR destino={cid}: {e}")
+                    else:
+                        print("[alerts] No hay ALERT_CHAT_IDS configurados; alerta no enviada")
 
                     outgoing_text = result.get("reply_text") or result.get("ack_text")
                     if outgoing_text:

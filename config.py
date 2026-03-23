@@ -24,6 +24,10 @@ ALERT_CHAT_IDS = [
     for x in os.environ.get("TELEGRAM_ALERT_CHAT_IDS", "").split(",")
     if x.strip().lstrip("-").isdigit()
 ]
+if ALERT_CHAT_IDS:
+    print(f"[config] TELEGRAM_ALERT_CHAT_IDS: {len(ALERT_CHAT_IDS)} destino(s) configurado(s)")
+else:
+    print("[config] WARNING: TELEGRAM_ALERT_CHAT_IDS esta vacio o no contiene IDs validos")
 
 
 # =========================
