@@ -1,37 +1,37 @@
 # Booking Bot
 
-AI-powered guest messaging assistant for vacation rentals. Receives guest messages via Telegram, classifies them, generates contextual replies from a property knowledge base, and escalates sensitive situations to the host. Includes a web admin panel for managing conversations and alerts.
+Asistente de mensajería para huéspedes de alojamientos turísticos. Recibe mensajes por Telegram, los clasifica, genera respuestas contextuales a partir de una base de conocimiento de la propiedad y escala situaciones sensibles al anfitrión. Incluye un panel de administración web para gestionar conversaciones y alertas.
 
-## Prerequisites
+## Requisitos previos
 
-The following environment variables are required:
+Las siguientes variables de entorno son necesarias:
 
-| Variable | Required | Description |
+| Variable | Obligatoria | Descripción |
 |---|---|---|
-| `OPENAI_API_KEY` | Yes | OpenAI API key |
-| `TELEGRAM_BOT_TOKEN` | Yes | Telegram bot token |
-| `TELEGRAM_ALERT_CHAT_IDS` | No | Comma-separated chat IDs for staff alerts |
-| `CLIENT_ID` | No | Client identifier (default: `cliente_demo`) |
-| `PROPERTY_ID` | No | Property identifier (default: `emilias_cabin`) |
-| `PANEL_PASSWORD` | No | Enables HTTP Basic Auth on the admin panel |
-| `SEED_DEMO` | No | Set to `true` to seed demo data on first startup |
+| `OPENAI_API_KEY` | Sí | Clave de API de OpenAI |
+| `TELEGRAM_BOT_TOKEN` | Sí | Token del bot de Telegram |
+| `TELEGRAM_ALERT_CHAT_IDS` | No | IDs de chat separados por comas para alertas al equipo |
+| `CLIENT_ID` | No | Identificador del cliente (por defecto: `cliente_demo`) |
+| `PROPERTY_ID` | No | Identificador de la propiedad (por defecto: `emilias_cabin`) |
+| `PANEL_PASSWORD` | No | Activa HTTP Basic Auth en el panel de administración |
+| `SEED_DEMO` | No | Establecer a `true` para insertar datos demo en el primer arranque |
 
-## Running locally
+## Ejecución local
 
-**Bot (Telegram polling):**
+**Bot (polling de Telegram):**
 ```bash
 python bot.py
 ```
 
-**API + admin panel:**
+**API + panel de administración:**
 ```bash
 uvicorn api:app --port 8000 --reload
 ```
 
-## Deployment
+## Despliegue
 
-Production runs both processes via a single Render web service. See [`start.sh`](start.sh) and [`render.yaml`](render.yaml).
+En producción ambos procesos se ejecutan en un único servicio web de Render. Ver [`start.sh`](start.sh) y [`render.yaml`](render.yaml).
 
-## Architecture
+## Arquitectura
 
-See [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for system design, startup flow, database schema, and deployment details.
+Ver [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) para el diseño del sistema, flujo de arranque, esquema de base de datos y detalles de despliegue.
