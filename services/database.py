@@ -276,6 +276,25 @@ _TABLES: List[Dict[str, Any]] = [
             "UNIQUE(property_db_id, topic)",
         ],
     },
+    # ---------------------------------------------------
+    # Milestone 3A: Bot heartbeat / health monitoring.
+    # Composite PK (service_name, instance_id): no serial.
+    # bot.py escribe cada ciclo; /api/health/bot lee aqui.
+    # meta: JSON serializado como TEXT (compat SQLite).
+    # ---------------------------------------------------
+    {
+        "name": "bot_heartbeats",
+        "columns": [
+            ("service_name",  "TEXT NOT NULL"),
+            ("instance_id",   "TEXT NOT NULL"),
+            ("last_seen_at",  "TEXT NOT NULL"),
+            ("status",        "TEXT NOT NULL DEFAULT 'ok'"),
+            ("meta",          "TEXT"),
+        ],
+        "constraints": [
+            "PRIMARY KEY (service_name, instance_id)",
+        ],
+    },
 ]
 
 
@@ -759,4 +778,100 @@ def update_conversation_owner(
         ).fetchone()
 
     return dict(updated)
+
+
+# =========================================================
+# Milestone 3A: Bot heartbeat
+# =========================================================
+
+def write_heartbeat(
+    service_name: str = "main_bot",
+    instance_id: str = "default",
+    meta: Optional[str] = None,
+) -> None:
+    """
+    Registra o actualiza el heartbeat del servicio indicado (UPSERT).
+    Los errores se suprimen — el heartbeat nunca debe interrumpir el bot.
+    """
+    try:
+        with _conn() as conn:
+            conn.execute(
+                """
+                INSERT INTO bot_heartbeats
+                    (service_name, instance_id, last_seen_at, status, meta)
+                VALUES (?, ?, ?, 'ok', ?)
+                ON CONFLICT(service_name, instance_id) DO UPDATE SET
+                    last_seen_at = excluded.last_seen_at,
+                    status       = excluded.status,
+                    meta         = excluded.meta
+                """,
+                (service_name, instance_id, _now(), meta),
+            )
+    except Exception as exc:
+        print(f"[heartbeat] write error (non-fatal): {exc}")
+
+
+def get_bot_health(
+    service_name: str = "main_bot",
+    instance_id: str = "default",
+) -> Dict[str, Any]:
+    """
+    Devuelve el estado del bot segun el ultimo heartbeat.
+
+    Umbrales:
+      age < 90 s   -> healthy
+      age < 300 s  -> stale
+      age >= 300 s -> down
+      sin registro -> down
+    """
+    try:
+        with _conn() as conn:
+            row = conn.execute(
+                """
+                SELECT last_seen_at FROM bot_heartbeats
+                WHERE service_name = ? AND instance_id = ?
+                """,
+                (service_name, instance_id),
+            ).fetchone()
+    except Exception as exc:
+        return {
+            "health": "down",
+            "reason": "db_error",
+            "detail": str(exc),
+            "last_seen_at": None,
+            "age_seconds": None,
+        }
+
+    if row is None:
+        return {
+            "health": "down",
+            "reason": "no_heartbeat",
+            "last_seen_at": None,
+            "age_seconds": None,
+        }
+
+    last_seen_at = row["last_seen_at"]
+    try:
+        dt = datetime.fromisoformat(last_seen_at.replace("Z", "+00:00"))
+        age = (datetime.now(timezone.utc) - dt).total_seconds()
+    except Exception:
+        return {
+            "health": "down",
+            "reason": "parse_error",
+            "last_seen_at": last_seen_at,
+            "age_seconds": None,
+        }
+
+    if age < 90:
+        health = "healthy"
+    elif age < 300:
+        health = "stale"
+    else:
+        health = "down"
+
+    return {
+        "health": health,
+        "last_seen_at": last_seen_at,
+        "age_seconds": round(age),
+    }
 

@@ -29,6 +29,23 @@ nav a {
 nav a:hover { text-decoration: underline; }
 nav .active { color: #1a1a1a; border-bottom: 2px solid #1a1a1a; }
 
+/* Bot status badge (Milestone 3A) */
+.bot-status-badge {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #666;
+  cursor: default;
+  user-select: none;
+}
+.bot-status-dot {
+  font-size: 10px;
+  line-height: 1;
+  color: #999;  /* sobreescrito por JS */
+}
+
 h1 { font-size: 20px; margin-bottom: 16px; }
 
 /* Tablas */

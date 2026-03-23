@@ -40,6 +40,7 @@ from services.database import (
     resolve_alert,
     update_conversation_status,
     update_conversation_owner,
+    get_bot_health,
     VALID_CONV_STATUSES,
     VALID_CONV_OWNERS,
 )
@@ -217,6 +218,19 @@ def health():
         "db_path": str(DB_PATH),
         "db_exists": DB_PATH.exists(),
     }
+
+
+@app.get("/api/health/bot")
+def bot_health():
+    """
+    Estado del proceso bot segun su ultimo heartbeat en DB.
+
+    Umbrales:
+      healthy  = ultimo latido < 90 s
+      stale    = 90–300 s
+      down     = > 300 s o sin registro
+    """
+    return get_bot_health()
 
 
 @app.get("/api/conversations")

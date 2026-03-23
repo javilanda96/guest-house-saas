@@ -40,7 +40,7 @@ from config import (
 )
 from services.processor import process_message
 from services.logger import log_interaction
-from services.database import init_db, persist_interaction
+from services.database import init_db, persist_interaction, write_heartbeat
 
 
 validate_config()
@@ -265,6 +265,7 @@ def main() -> None:
 
             time.sleep(POST_LOOP_SLEEP)
             _error_delay = 2  # reset tras iteración exitosa
+            write_heartbeat()  # Milestone 3A: pulso de vida para monitorización
 
         except KeyboardInterrupt:
             print("\nBot detenido.")

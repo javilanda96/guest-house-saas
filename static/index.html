@@ -11,6 +11,10 @@
     <a href="/" class="active">Inbox</a>
     <a href="/static/alerts.html">Alertas</a>
     <a href="/static/properties.html">Propiedades</a>
+    <span id="bot-status-badge" class="bot-status-badge" title="Comprobando estado del bot...">
+      <span class="bot-status-dot" id="bot-status-dot">●</span>
+      <span id="bot-status-label">Bot</span>
+    </span>
   </nav>
 
   <h1>Inbox</h1>
@@ -168,6 +172,30 @@
     }
 
     load();
+
+    // Milestone 3A: bot heartbeat badge
+    async function loadBotHealth() {
+      const dot   = document.getElementById("bot-status-dot");
+      const label = document.getElementById("bot-status-label");
+      const badge = document.getElementById("bot-status-badge");
+      const colors = { healthy: "#4caf50", stale: "#ff9800", down: "#e53935" };
+      const labels = { healthy: "Bot activo", stale: "Bot lento", down: "Bot caído" };
+      try {
+        const d = await API.get("/api/health/bot");
+        const h = d.health || "down";
+        dot.style.color   = colors[h] || "#999";
+        label.textContent = labels[h] || h;
+        badge.title       = d.age_seconds != null
+          ? `Último latido hace ${d.age_seconds} s`
+          : (d.reason || h);
+      } catch (e) {
+        dot.style.color   = "#999";
+        label.textContent = "Bot ?";
+        badge.title       = "No se pudo comprobar el estado del bot";
+      }
+    }
+    loadBotHealth();
+    setInterval(loadBotHealth, 30000);  // refresca cada 30 s
   </script>
 </body>
 </html>
