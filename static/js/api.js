@@ -3,9 +3,19 @@
  * Todas las paginas importan este archivo.
  */
 
+/** Redirige a /login si la sesion ha expirado o no existe. */
+function _handleUnauth(status) {
+  if (status === 401) {
+    window.location.href = "/login";
+    return true;
+  }
+  return false;
+}
+
 const API = {
   async get(path) {
     const res = await fetch(path);
+    if (_handleUnauth(res.status)) return;
     if (!res.ok) throw new Error(`GET ${path}: ${res.status}`);
     return res.json();
   },
@@ -16,6 +26,7 @@ const API = {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
+    if (_handleUnauth(res.status)) return;
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `PUT ${path}: ${res.status}`);
@@ -30,6 +41,7 @@ const API = {
     };
     if (body) opts.body = JSON.stringify(body);
     const res = await fetch(path, opts);
+    if (_handleUnauth(res.status)) return;
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       throw new Error(err.detail || `PATCH ${path}: ${res.status}`);

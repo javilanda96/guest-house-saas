@@ -9,21 +9,23 @@ para consumo desde un panel de administración.
 - Proceso independiente: no interfiere con bot.py.
 
 Seguridad:
-- Si PANEL_PASSWORD esta definida -> HTTP Basic Auth en todo excepto /api/health.
-- Si no esta definida (local dev) -> sin autenticacion.
+- Si PANEL_PASSWORD esta definida -> login con cookie de sesion HMAC-firmada.
+- SECRET_KEY obligatoria cuando PANEL_PASSWORD esta activa.
+- Sin PANEL_PASSWORD (local dev) -> sin autenticacion.
 - Si PANEL_PASSWORD esta definida -> /docs deshabilitado.
 
 Arrancar local:
     .venv/Scripts/uvicorn api:app --port 8000 --reload
 """
 
+import hashlib
+import hmac
 import os
 import secrets
 from pathlib import Path
 
-from fastapi import Depends, FastAPI, HTTPException, Query, Request, status
-from fastapi.responses import FileResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi import FastAPI, Form, HTTPException, Query, Request, status
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
@@ -56,30 +58,27 @@ from tools.seed_demo import seed_if_empty
 
 _PANEL_PASSWORD = os.environ.get("PANEL_PASSWORD")
 _AUTH_ENABLED = _PANEL_PASSWORD is not None and len(_PANEL_PASSWORD) > 0
+_SECRET_KEY = os.environ.get("SECRET_KEY", "")
 
-security = HTTPBasic()
+_SESSION_COOKIE = "session"
+_SESSION_PAYLOAD = "auth"
 
-
-def _verify_auth(credentials: HTTPBasicCredentials = Depends(security)):
-    """
-    Verifica HTTP Basic Auth.
-    Username: 'admin' (fijo).
-    Password: valor de PANEL_PASSWORD.
-    Usa secrets.compare_digest para evitar timing attacks.
-    """
-    correct_user = secrets.compare_digest(credentials.username, "admin")
-    correct_pass = secrets.compare_digest(credentials.password, _PANEL_PASSWORD)
-    if not (correct_user and correct_pass):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales incorrectas",
-            headers={"WWW-Authenticate": "Basic"},
-        )
+# Rutas publicas: el middleware las deja pasar sin cookie de sesion.
+_PUBLIC_PATHS = frozenset({"/login", "/logout", "/api/health"})
+_PUBLIC_PREFIX = "/static/"
 
 
-# Solo aplicar auth si PANEL_PASSWORD esta definida.
-# En desarrollo local (sin PANEL_PASSWORD) no hay autenticacion.
-_auth_deps = [Depends(_verify_auth)] if _AUTH_ENABLED else []
+def _sign_session() -> str:
+    """Genera token de sesion firmado con HMAC-SHA256: 'auth.<hex_digest>'."""
+    digest = hmac.new(
+        _SECRET_KEY.encode(), _SESSION_PAYLOAD.encode(), hashlib.sha256
+    ).hexdigest()
+    return f"{_SESSION_PAYLOAD}.{digest}"
+
+
+def _is_valid_session(token: str) -> bool:
+    """Verifica token de sesion. Usa compare_digest para evitar timing attacks."""
+    return secrets.compare_digest(token, _sign_session())
 
 
 # =========================================================
@@ -99,6 +98,27 @@ app = FastAPI(
     openapi_url=None if _AUTH_ENABLED else "/openapi.json",
 )
 
+@app.middleware("http")
+async def _auth_middleware(request: Request, call_next):
+    """
+    Protege todas las rutas salvo las publicas.
+    - Rutas API sin cookie valida → 401 JSON.
+    - Rutas HTML sin cookie valida → redirige a /login.
+    - Sin PANEL_PASSWORD (dev local) → sin restricciones.
+    """
+    if not _AUTH_ENABLED:
+        return await call_next(request)
+    path = request.url.path
+    if path in _PUBLIC_PATHS or path.startswith(_PUBLIC_PREFIX):
+        return await call_next(request)
+    token = request.cookies.get(_SESSION_COOKIE, "")
+    if token and _is_valid_session(token):
+        return await call_next(request)
+    if path.startswith("/api/"):
+        return JSONResponse({"detail": "No autenticado"}, status_code=401)
+    return RedirectResponse(url="/login", status_code=303)
+
+
 # Servir archivos estaticos del panel
 app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 
@@ -107,6 +127,11 @@ app.mount("/static", StaticFiles(directory=str(_STATIC_DIR)), name="static")
 def on_startup() -> None:
     """Asegura que la DB y las tablas existen al arrancar la API.
     Si la DB esta vacia y SEED_DEMO=true, inserta datos demo."""
+    if _AUTH_ENABLED and not _SECRET_KEY:
+        raise RuntimeError(
+            "[auth] SECRET_KEY no definida. "
+            "Es obligatoria cuando PANEL_PASSWORD esta activa."
+        )
     seed_if_empty()  # Llama init_db() internamente
 
 
@@ -137,10 +162,40 @@ class UpdateKnowledgeRequest(BaseModel):
 # =========================================================
 
 
-@app.get("/", include_in_schema=False, dependencies=_auth_deps)
+@app.get("/", include_in_schema=False)
 def panel_root():
-    """Sirve el panel principal."""
+    """Sirve el panel principal. Protegido por middleware."""
     return FileResponse(str(_STATIC_DIR / "index.html"))
+
+
+@app.get("/login", include_in_schema=False)
+def get_login():
+    """Sirve la pagina de login. Siempre publica."""
+    return FileResponse(str(_STATIC_DIR / "login.html"))
+
+
+@app.post("/login", include_in_schema=False)
+async def post_login(password: str = Form(...)):
+    """Valida la contrasena y establece cookie de sesion firmada."""
+    if _AUTH_ENABLED and secrets.compare_digest(password, _PANEL_PASSWORD):
+        resp = RedirectResponse(url="/", status_code=303)
+        resp.set_cookie(
+            key=_SESSION_COOKIE,
+            value=_sign_session(),
+            httponly=True,
+            samesite="strict",
+            secure=bool(os.environ.get("RENDER")),
+        )
+        return resp
+    return RedirectResponse(url="/login?error=1", status_code=303)
+
+
+@app.get("/logout", include_in_schema=False)
+def logout():
+    """Cierra sesion eliminando la cookie."""
+    resp = RedirectResponse(url="/login", status_code=303)
+    resp.delete_cookie(key=_SESSION_COOKIE)
+    return resp
 
 
 # =========================================================
@@ -164,7 +219,7 @@ def health():
     }
 
 
-@app.get("/api/conversations", dependencies=_auth_deps)
+@app.get("/api/conversations")
 def list_conversations(
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
@@ -173,7 +228,7 @@ def list_conversations(
     return get_conversations(limit=limit, offset=offset)
 
 
-@app.get("/api/conversations/{conversation_id}/interactions", dependencies=_auth_deps)
+@app.get("/api/conversations/{conversation_id}/interactions")
 def list_interactions(
     conversation_id: int,
     limit: int = Query(default=50, ge=1, le=200),
@@ -190,7 +245,7 @@ def list_interactions(
     return result
 
 
-@app.get("/api/alerts", dependencies=_auth_deps)
+@app.get("/api/alerts")
 def list_alerts(
     status: Optional[str] = Query(
         default=None,
@@ -208,7 +263,7 @@ def list_alerts(
     return get_alerts(status=status, limit=limit, offset=offset)
 
 
-@app.get("/api/properties", dependencies=_auth_deps)
+@app.get("/api/properties")
 def list_properties(
     client_id: Optional[str] = Query(
         default=None,
@@ -219,7 +274,7 @@ def list_properties(
     return get_properties(client_id=client_id)
 
 
-@app.get("/api/properties/{property_db_id}", dependencies=_auth_deps)
+@app.get("/api/properties/{property_db_id}")
 def property_detail(property_db_id: int):
     """Detalle de una propiedad con sus entradas de knowledge base."""
     result = get_property_detail(property_db_id)
@@ -228,7 +283,7 @@ def property_detail(property_db_id: int):
     return result
 
 
-@app.put("/api/properties/{property_db_id}", dependencies=_auth_deps)
+@app.put("/api/properties/{property_db_id}")
 def put_property(property_db_id: int, body: UpdatePropertyRequest):
     """Actualiza los campos de perfil de una propiedad."""
     result = update_property_profile(
@@ -245,7 +300,7 @@ def put_property(property_db_id: int, body: UpdatePropertyRequest):
     return result
 
 
-@app.put("/api/properties/{property_db_id}/knowledge/{topic}", dependencies=_auth_deps)
+@app.put("/api/properties/{property_db_id}/knowledge/{topic}")
 def put_knowledge_topic(property_db_id: int, topic: str, body: UpdateKnowledgeRequest):
     """Actualiza el contenido de un topic en el knowledge base de una propiedad."""
     if topic not in VALID_KNOWLEDGE_TOPICS:
@@ -264,7 +319,7 @@ def put_knowledge_topic(property_db_id: int, topic: str, body: UpdateKnowledgeRe
 # =========================================================
 
 
-@app.patch("/api/alerts/{alert_id}/resolve", dependencies=_auth_deps)
+@app.patch("/api/alerts/{alert_id}/resolve")
 def patch_resolve_alert(alert_id: int):
     """Marca una alerta como resuelta (resolved_at = ahora UTC)."""
     try:
@@ -277,7 +332,7 @@ def patch_resolve_alert(alert_id: int):
     return result
 
 
-@app.patch("/api/conversations/{conversation_id}/status", dependencies=_auth_deps)
+@app.patch("/api/conversations/{conversation_id}/status")
 def patch_conversation_status(
     conversation_id: int,
     body: UpdateStatusRequest,
@@ -297,7 +352,7 @@ def patch_conversation_status(
     return result
 
 
-@app.patch("/api/conversations/{conversation_id}/owner", dependencies=_auth_deps)
+@app.patch("/api/conversations/{conversation_id}/owner")
 def patch_conversation_owner(
     conversation_id: int,
     body: UpdateOwnerRequest,

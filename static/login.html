@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceso al panel</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #ede6dc;
+      font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+      color: #2f4858;
+    }
+
+    .card {
+      background: #faf7f2;
+      border-radius: 10px;
+      padding: 2.75rem 2.5rem 2.25rem;
+      width: 100%;
+      max-width: 360px;
+      box-shadow: 0 2px 18px rgba(47, 72, 88, 0.09);
+    }
+
+    h1 {
+      font-family: Georgia, 'Times New Roman', serif;
+      font-size: 1.8rem;
+      font-weight: 400;
+      letter-spacing: 0.01em;
+      color: #2f4858;
+      margin-bottom: 0.4rem;
+      line-height: 1.2;
+    }
+
+    .subtitle {
+      font-size: 0.84rem;
+      color: #7a8e99;
+      margin-bottom: 2rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: #5a7080;
+      margin-bottom: 0.5rem;
+    }
+
+    input[type="password"] {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid #c9bfb0;
+      border-radius: 6px;
+      background: #ffffff;
+      color: #2f4858;
+      font-size: 0.95rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+
+    input[type="password"]:focus {
+      border-color: #2f4858;
+    }
+
+    button {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.72rem;
+      background: #2f4858;
+      color: #faf7f2;
+      border: none;
+      border-radius: 6px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: #3d5a6e;
+    }
+
+    .error {
+      display: none;
+      margin-top: 1rem;
+      font-size: 0.82rem;
+      color: #a05c4a;
+      text-align: center;
+    }
+
+    .error.visible {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Panel de gestión</h1>
+    <p class="subtitle">Introduce la contraseña para continuar</p>
+    <form method="POST" action="/login">
+      <label for="password">Contraseña</label>
+      <input
+        type="password"
+        id="password"
+        name="password"
+        autofocus
+        autocomplete="current-password"
+        required
+      >
+      <p class="error" id="err">Contraseña incorrecta. Inténtalo de nuevo.</p>
+      <button type="submit">Entrar</button>
+    </form>
+  </div>
+  <script>
+    if (new URLSearchParams(window.location.search).get('error') === '1') {
+      document.getElementById('err').classList.add('visible');
+    }
+  </script>
+</body>
+</html>
