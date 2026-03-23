@@ -255,6 +255,48 @@ def ensure_reply_language(client, user_text: str, reply_text: str) -> str:
         return reply_text
 
 
+def ack_emergency_in_user_language(client, user_text: str) -> str:
+    """
+    Genera un mensaje de seguridad inmediata para emergencias reales
+    (action=alert_staff_urgent). Prioriza servicios de emergencia y
+    seguridad personal antes de mencionar al anfitrión.
+    """
+    fallback = (
+        f"If you are in immediate danger, call emergency services (112) now. "
+        f"Then contact {CONTACT_NAME} as soon as possible."
+    )
+
+    try:
+        resp = client.responses.create(
+            model=MODEL_NAME,
+            temperature=0,
+            input=[
+                {
+                    "role": "system",
+                    "content": (
+                        "The guest may be facing an emergency (fire, smoke, gas leak, injury, or immediate danger). "
+                        "Write a short, clear safety message. "
+                        "First: if there is any immediate danger, tell them to ensure their safety "
+                        "and call emergency services (112 in Spain). "
+                        f"Second: tell them to also contact {CONTACT_NAME} as soon as possible. "
+                        "Do not minimize the situation. Do not just redirect to the host. "
+                        "Be brief, direct, and calm. "
+                        "Reply in the same language as the guest message."
+                    ),
+                },
+                {
+                    "role": "user",
+                    "content": user_text,
+                },
+            ],
+        )
+        out = _safe_output_text(resp)
+        out = out if out else fallback
+        return ensure_reply_language(client, user_text, out)
+    except Exception:
+        return fallback
+
+
 def ack_in_user_language(client, user_text: str) -> str:
     """
     Genera un acuse corto en el idioma del huésped.

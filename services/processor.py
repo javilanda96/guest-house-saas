@@ -14,6 +14,7 @@ from typing import Dict, List, Tuple
 
 from services.logger import log_alert, log_classification, log_reply
 from services.openai_client import (
+    ack_emergency_in_user_language,
     ack_in_user_language,
     classify_with_ai,
     ensure_reply_language,
@@ -247,7 +248,11 @@ def handle_sensitive_case(
     ack_text = None
     if send_ack_on_sensitive:
         try:
-            ack_text = ack_in_user_language(client, text)
+            if action == "alert_staff_urgent":
+                # Emergencias reales: priorizar seguridad y servicios de emergencia
+                ack_text = ack_emergency_in_user_language(client, text)
+            else:
+                ack_text = ack_in_user_language(client, text)
             ack_text = ensure_reply_language(client, text, ack_text)
         except Exception:
             ack_text = None
