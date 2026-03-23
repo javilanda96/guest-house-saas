@@ -1,233 +1,233 @@
-# Architecture
+# Arquitectura
 
-Last updated: 2026-03-12
+Última actualización: 2026-03-12
 
-## System Overview
+## Visión general del sistema
 
-Booking Bot is an AI-powered guest messaging assistant for vacation rentals. It receives guest messages via Telegram, classifies them using OpenAI, generates contextual replies using a property-specific knowledge base, and escalates sensitive situations to the host.
+Booking Bot es un asistente de mensajería para huéspedes de alojamientos turísticos. Recibe mensajes por Telegram, los clasifica mediante OpenAI, genera respuestas contextuales a partir de la base de conocimiento de la propiedad y escala situaciones sensibles al anfitrión.
 
-The system runs as a single Render web service containing two processes:
-- `bot.py` — Telegram polling loop (background)
-- `uvicorn` serving `api.py` — FastAPI API + admin panel (foreground)
+El sistema se ejecuta como un único servicio web en Render con dos procesos:
+- `bot.py` — bucle de polling de Telegram (en segundo plano)
+- `uvicorn` sirviendo `api.py` — API FastAPI + panel de administración (en primer plano)
 
-Both processes share the same SQLite database file (`data/bot.db`).
+Ambos procesos comparten el mismo archivo de base de datos SQLite (`data/bot.db`).
 
 ```
-Guest (Telegram)
+Huésped (Telegram)
     |
     v
 bot.py (polling loop)
     |
-    ├── classify message (OpenAI)
-    ├── route to knowledge base topic
-    ├── generate reply (OpenAI)
-    ├── detect language, translate if needed (lingua)
-    ├── send reply to guest (Telegram API)
-    ├── send alert to staff if escalated (Telegram API)
-    └── persist to SQLite
+    ├── clasificar mensaje (OpenAI)
+    ├── enrutar al topic de la base de conocimiento
+    ├── generar respuesta (OpenAI)
+    ├── detectar idioma, traducir si es necesario (lingua)
+    ├── enviar respuesta al huésped (Telegram API)
+    ├── enviar alerta al equipo si se escala (Telegram API)
+    └── persistir en SQLite
             |
             v
         data/bot.db  <──── api.py (FastAPI)
                                |
                                v
-                        Admin Panel (HTML/JS)
+                        Panel de administración (HTML/JS)
 ```
 
-## Bot Architecture (bot.py)
+## Arquitectura del bot (bot.py)
 
-### Entry Point
-`bot.py` has a `main()` function called from `if __name__ == "__main__"`. It runs an infinite loop polling Telegram for new messages.
+### Punto de entrada
+`bot.py` tiene una función `main()` llamada desde `if __name__ == "__main__"`. Ejecuta un bucle infinito que hace polling de Telegram para recibir nuevos mensajes.
 
-### Message Processing Flow
-1. `channel.get_updates()` — polls Telegram with 30s long-polling timeout
-2. Idempotency check — `processed_keys` set of `(chat_id, message_id)` prevents double-processing
-3. Rate limiting — per-chat timestamps prevent abuse
-4. `process_message()` in `services/processor.py`:
-   - `is_urgent(text)` — keyword scan for emergencies (fire, gas leak, etc.)
-   - `classify_with_ai()` — OpenAI classifies into: faq, operational, incident, emergency, complaint, ambiguous
-   - `determine_action()` — maps category + urgency to action: reply_guest, reply_and_alert, alert_staff_urgent, ask_clarification
-   - `choose_kb_key()` + `load_relevant_knowledge()` — selects and loads the relevant knowledge base file
-   - Handler dispatch: `handle_greeting()`, `handle_reply_guest()`, `handle_sensitive_case()`, `handle_clarification()`
-   - `ensure_reply_language()` — confidence-gated language detection (lingua, threshold 0.65) to match reply language to guest language
-5. Routing output:
-   - `reply_guest` — send reply to guest via Telegram
-   - `reply_and_alert` / `alert_staff_urgent` — send alert to configured staff chat IDs + send ack/reply to guest
-6. Persist to database via `persist_interaction()`
-7. Log to JSONL file via `log_interaction()`
+### Flujo de procesamiento de mensajes
+1. `channel.get_updates()` — hace polling de Telegram con timeout de long-polling de 30s
+2. Control de idempotencia — el conjunto `processed_keys` de `(chat_id, message_id)` evita el doble procesamiento
+3. Rate limiting — timestamps por chat previenen el abuso
+4. `process_message()` en `services/processor.py`:
+   - `is_urgent(text)` — escaneo de palabras clave para emergencias (incendio, fuga de gas, etc.)
+   - `classify_with_ai()` — OpenAI clasifica en: faq, operational, incident, emergency, complaint, ambiguous
+   - `determine_action()` — mapea categoría + urgencia a acción: reply_guest, reply_and_alert, alert_staff_urgent, ask_clarification
+   - `choose_kb_key()` + `load_relevant_knowledge()` — selecciona y carga el archivo de base de conocimiento relevante
+   - Despacho de handlers: `handle_greeting()`, `handle_reply_guest()`, `handle_sensitive_case()`, `handle_clarification()`
+   - `ensure_reply_language()` — detección de idioma con umbral de confianza (lingua, threshold 0.65) para responder en el idioma del huésped
+5. Salida del enrutamiento:
+   - `reply_guest` — enviar respuesta al huésped por Telegram
+   - `reply_and_alert` / `alert_staff_urgent` — enviar alerta a los chat IDs del equipo + enviar acuse/respuesta al huésped
+6. Persistir en base de datos via `persist_interaction()`
+7. Registrar en archivo JSONL via `log_interaction()`
 
-### In-Memory State
-- `chat_histories: Dict[int, List[dict]]` — conversation context per chat_id, lost on restart
-- `processed_keys: Set[Tuple[int, int]]` — idempotency tracking, capped at 2000 entries
-- `_rate_timestamps: Dict[int, List[float]]` — per-chat rate limiting
+### Estado en memoria
+- `chat_histories: Dict[int, List[dict]]` — contexto de conversación por chat_id, se pierde al reiniciar
+- `processed_keys: Set[Tuple[int, int]]` — control de idempotencia, limitado a 2000 entradas
+- `_rate_timestamps: Dict[int, List[float]]` — rate limiting por chat
 
-### Configuration (config.py)
-All configuration is loaded at module import time:
-- `OPENAI_API_KEY` — required env var
-- `TELEGRAM_BOT_TOKEN` — required env var
-- `CLIENT_ID` — env var, defaults to "cliente_demo"
-- `PROPERTY_ID` — env var, defaults to "emilias_cabin"
-- `TELEGRAM_ALERT_CHAT_IDS` — comma-separated env var, optional
-- Property context loaded from filesystem: `knowledge/clients/{CLIENT_ID}/properties/{PROPERTY_ID}/`
-- System prompts loaded from `prompts/system_reply.txt` and `prompts/system_classifier.txt`
+### Configuración (config.py)
+Toda la configuración se carga en el momento de importar el módulo:
+- `OPENAI_API_KEY` — variable de entorno obligatoria
+- `TELEGRAM_BOT_TOKEN` — variable de entorno obligatoria
+- `CLIENT_ID` — variable de entorno, por defecto "cliente_demo"
+- `PROPERTY_ID` — variable de entorno, por defecto "emilias_cabin"
+- `TELEGRAM_ALERT_CHAT_IDS` — variable de entorno separada por comas, opcional
+- Contexto de propiedad cargado desde el sistema de archivos: `knowledge/clients/{CLIENT_ID}/properties/{PROPERTY_ID}/`
+- Prompts del sistema cargados desde `prompts/system_reply.txt` y `prompts/system_classifier.txt`
 
-**Critical constraint:** config.py loads everything at import time. A single bot instance serves a single property. This is the main architectural limitation for multi-property support.
+**Restricción crítica:** config.py carga todo en el momento de la importación. Una instancia del bot sirve a una única propiedad. Esta es la principal limitación arquitectónica para el soporte multi-propiedad.
 
-### Channel Abstraction
-`channels/base_channel.py` defines:
+### Abstracción de canal
+`channels/base_channel.py` define:
 ```python
 class BaseChannel:
     def get_updates(self, offset=None): ...
     def send_message(self, chat_id: int, text: str): ...
 ```
-`channels/telegram.py` implements this using raw urllib HTTP calls to the Telegram Bot API (no SDK dependency).
+`channels/telegram.py` implementa esto usando llamadas HTTP directas con urllib a la Telegram Bot API (sin dependencia de SDK).
 
-### Knowledge Base (filesystem)
+### Base de conocimiento (sistema de archivos)
 ```
 knowledge/clients/{CLIENT_ID}/properties/{PROPERTY_ID}/
-    property.json           # name, city, country, contact_name, contact_phone, default_language
+    property.json           # nombre, ciudad, país, contact_name, contact_phone, default_language
     knowledge_base/
-        faq.txt             # frequently asked questions
-        checkin.txt         # check-in instructions
-        house_rules.txt     # house rules
-        emergencies.txt     # emergency procedures
-        host_notes.txt      # host-specific notes
-        local_tips.txt      # local recommendations
+        faq.txt             # preguntas frecuentes
+        checkin.txt         # instrucciones de check-in
+        house_rules.txt     # normas de la casa
+        emergencies.txt     # procedimientos de emergencia
+        host_notes.txt      # notas específicas del anfitrión
+        local_tips.txt      # recomendaciones locales
 ```
-Loaded by `services/property_manager.py` at startup. Cached in memory by `services/routing.py`.
+Cargado por `services/property_manager.py` al arrancar. Almacenado en memoria por `services/routing.py`.
 
-## API Architecture (api.py)
+## Arquitectura de la API (api.py)
 
-FastAPI application serving:
-- Admin panel static files at `/` and `/static/*`
-- REST API at `/api/*`
-- Auto-generated docs at `/docs`
+Aplicación FastAPI que sirve:
+- Archivos estáticos del panel de administración en `/` y `/static/*`
+- API REST en `/api/*`
+- Documentación autogenerada en `/docs`
 
 ### Endpoints
 
-**Read:**
-- `GET /api/health` — health check, reports DB path and existence
-- `GET /api/conversations` — list conversations with message counts, last message preview, pending alert counts
-- `GET /api/conversations/{id}/interactions` — list messages for a conversation, with alerts attached to each interaction
-- `GET /api/alerts` — list alerts, filterable by status (pending/resolved)
+**Lectura:**
+- `GET /api/health` — health check, informa sobre la ruta y existencia de la DB
+- `GET /api/conversations` — lista conversaciones con conteo de mensajes, vista previa del último mensaje y conteo de alertas pendientes
+- `GET /api/conversations/{id}/interactions` — lista mensajes de una conversación, con alertas asociadas a cada interacción
+- `GET /api/alerts` — lista alertas, filtrables por estado (pending/resolved)
 
-**Write:**
-- `PATCH /api/alerts/{id}/resolve` — mark alert as resolved
-- `PATCH /api/conversations/{id}/status` — update status (open, bot_resolved, host_pending, urgent)
-- `PATCH /api/conversations/{id}/owner` — update owner (bot, host)
+**Escritura:**
+- `PATCH /api/alerts/{id}/resolve` — marca una alerta como resuelta
+- `PATCH /api/conversations/{id}/status` — actualiza el estado (open, bot_resolved, host_pending, urgent)
+- `PATCH /api/conversations/{id}/owner` — actualiza el owner (bot, host)
 
-### Startup
-On startup, `api.py` calls `seed_if_empty()` which:
-1. Calls `init_db()` to create tables if they don't exist
-2. Checks if the conversations table is empty
-3. If empty, inserts 5 demo conversations with interactions and alerts
+### Arranque
+Al arrancar, `api.py` llama a `seed_if_empty()` que:
+1. Llama a `init_db()` para crear las tablas si no existen
+2. Comprueba si la tabla de conversaciones está vacía
+3. Si está vacía, inserta 5 conversaciones demo con interacciones y alertas
 
-## Admin Panel
+## Panel de administración
 
-Three HTML pages served as static files, using vanilla JavaScript and CSS:
+Tres páginas HTML servidas como archivos estáticos, usando JavaScript y CSS vanilla:
 
-### Inbox (static/index.html, served at /)
-- Card-based conversation list (not a table)
-- Filter tabs: Needs Attention (default) / All / Resolved
-- Sorted by urgency: urgent > host_pending > open > bot_resolved, then by recency
-- Each card shows: property name, status badge, owner badge, relative timestamp, last message preview, message count, pending alerts indicator
-- Clicking a card opens the conversation detail
+### Bandeja de entrada (static/index.html, servida en /)
+- Lista de conversaciones en formato tarjeta (no tabla)
+- Pestañas de filtro: Requiere atención (por defecto) / Todas / Resueltas
+- Ordenadas por urgencia: urgent > host_pending > open > bot_resolved, luego por recencia
+- Cada tarjeta muestra: nombre de propiedad, badge de estado, badge de owner, timestamp relativo, vista previa del último mensaje, conteo de mensajes, indicador de alertas pendientes
+- Al hacer clic en una tarjeta se abre el detalle de la conversación
 
-### Conversation Detail (static/conversation.html)
-- Chronological message timeline
-- Each interaction shows: user message, bot reply, classification badges (action, category, urgent, escalated)
-- Inline alert cards rendered after the interaction that triggered them
-- Alert cards show: reason, translated text, bot draft, resolve button
-- XSS protection via `textContent`-based escaping
+### Detalle de conversación (static/conversation.html)
+- Timeline cronológico de mensajes
+- Cada interacción muestra: mensaje del usuario, respuesta del bot, badges de clasificación (action, category, urgent, escalated)
+- Tarjetas de alerta renderizadas inline después de la interacción que las generó
+- Las tarjetas de alerta muestran: motivo, texto traducido, borrador del bot, botón de resolver
+- Protección XSS via escape basado en `textContent`
 
-### Alerts (static/alerts.html)
-- Table of all alerts across conversations
-- Filter tabs: All / Pending / Resolved
-- Each row links to the parent conversation
-- Resolve button for pending alerts
-- Horizontal scroll wrapper for mobile
+### Alertas (static/alerts.html)
+- Tabla de todas las alertas entre conversaciones
+- Pestañas de filtro: Todas / Pendientes / Resueltas
+- Cada fila enlaza a la conversación padre
+- Botón de resolver para alertas pendientes
+- Wrapper de scroll horizontal para móvil
 
-### Shared Assets
-- `static/css/style.css` — all styles including inbox cards, message cards, inline alert cards, badges, responsive media queries
-- `static/js/api.js` — shared fetch helpers (`API.get()`, `API.patch()`), date formatting (`fmtDate()`, `timeAgo()`), status CSS classes (`statusClass()`)
+### Recursos compartidos
+- `static/css/style.css` — todos los estilos incluyendo tarjetas de bandeja, tarjetas de mensaje, tarjetas de alerta inline, badges, media queries responsive
+- `static/js/api.js` — helpers de fetch compartidos (`API.get()`, `API.patch()`), formateo de fechas (`fmtDate()`, `timeAgo()`), clases CSS de estado (`statusClass()`)
 
-### Mobile Responsiveness
-All three pages include `<meta name="viewport">`. A `@media (max-width: 600px)` block handles: reduced padding, flex-wrap on card rows, removed alert indent, table scroll wrapper, adjusted font sizes.
+### Responsividad móvil
+Las tres páginas incluyen `<meta name="viewport">`. Un bloque `@media (max-width: 600px)` gestiona: padding reducido, flex-wrap en filas de tarjetas, indentación de alerta eliminada, wrapper de scroll en tabla, tamaños de fuente ajustados.
 
-## Database Schema (SQLite)
+## Esquema de base de datos (SQLite)
 
-Three tables in `data/bot.db`:
+Tres tablas en `data/bot.db`:
 
 ### conversations
-| Column | Type | Notes |
+| Columna | Tipo | Notas |
 |--------|------|-------|
 | id | INTEGER PK | AUTOINCREMENT |
-| client_id | TEXT NOT NULL | SaaS tenant identifier |
-| property_id | TEXT NOT NULL | Property within client |
-| telegram_chat_id | INTEGER NOT NULL | Guest's Telegram chat ID |
+| client_id | TEXT NOT NULL | Identificador de tenant SaaS |
+| property_id | TEXT NOT NULL | Propiedad dentro del cliente |
+| telegram_chat_id | INTEGER NOT NULL | Chat ID de Telegram del huésped |
 | status | TEXT | open, bot_resolved, host_pending, urgent |
 | owner | TEXT | bot, host |
 | priority | TEXT | normal, high |
-| created_at | TEXT | UTC ISO timestamp |
-| updated_at | TEXT | UTC ISO timestamp |
+| created_at | TEXT | Timestamp UTC ISO |
+| updated_at | TEXT | Timestamp UTC ISO |
 
-UNIQUE constraint on `(client_id, property_id, telegram_chat_id)`.
+Restricción UNIQUE en `(client_id, property_id, telegram_chat_id)`.
 
 ### interactions
-| Column | Type | Notes |
+| Columna | Tipo | Notas |
 |--------|------|-------|
 | id | INTEGER PK | AUTOINCREMENT |
-| conversation_id | INTEGER FK | References conversations(id) |
-| user_message | TEXT NOT NULL | Raw guest message |
+| conversation_id | INTEGER FK | Referencias conversations(id) |
+| user_message | TEXT NOT NULL | Mensaje bruto del huésped |
 | category | TEXT | faq, operational, incident, emergency, complaint, ambiguous |
-| reason | TEXT | Classification explanation |
+| reason | TEXT | Explicación de la clasificación |
 | action | TEXT | reply_guest, reply_and_alert, alert_staff_urgent, ask_clarification |
-| urgent | INTEGER | 0 or 1 |
-| escalate | INTEGER | 0 or 1 |
-| reply_text | TEXT | Bot's direct reply |
-| ack_text | TEXT | Acknowledgment reply (sensitive cases) |
-| created_at | TEXT | UTC ISO timestamp |
+| urgent | INTEGER | 0 o 1 |
+| escalate | INTEGER | 0 o 1 |
+| reply_text | TEXT | Respuesta directa del bot |
+| ack_text | TEXT | Respuesta de acuse (casos sensibles) |
+| created_at | TEXT | Timestamp UTC ISO |
 
 ### alerts
-| Column | Type | Notes |
+| Columna | Tipo | Notas |
 |--------|------|-------|
 | id | INTEGER PK | AUTOINCREMENT |
-| interaction_id | INTEGER FK | References interactions(id) |
-| conversation_id | INTEGER FK | References conversations(id), denormalized |
-| reason | TEXT | Alert reason |
-| translated_text | TEXT | Message translated to Spanish |
-| draft_text | TEXT | Suggested host response |
-| urgent | INTEGER | 0 or 1 |
-| resolved_at | TEXT | NULL = pending, timestamp = resolved |
-| created_at | TEXT | UTC ISO timestamp |
+| interaction_id | INTEGER FK | Referencias interactions(id) |
+| conversation_id | INTEGER FK | Referencias conversations(id), desnormalizado |
+| reason | TEXT | Motivo de la alerta |
+| translated_text | TEXT | Mensaje traducido al español |
+| draft_text | TEXT | Respuesta sugerida para el anfitrión |
+| urgent | INTEGER | 0 o 1 |
+| resolved_at | TEXT | NULL = pendiente, timestamp = resuelta |
+| created_at | TEXT | Timestamp UTC ISO |
 
-## Deployment (Render)
+## Despliegue (Render)
 
-### Service Configuration (render.yaml)
-- Single web service: `booking-bot-api`
+### Configuración del servicio (render.yaml)
+- Servicio web único: `booking-bot-api`
 - Runtime: Python 3.12
-- Build command: `pip install -r requirements.txt`
-- Start command: `bash start.sh`
+- Comando de build: `pip install -r requirements.txt`
+- Comando de inicio: `bash start.sh`
 
-### Startup Script (start.sh)
+### Script de arranque (start.sh)
 ```bash
 #!/usr/bin/env bash
 set -e
 python bot.py &
 exec uvicorn api:app --host 0.0.0.0 --port $PORT
 ```
-- `bot.py` runs in background (Telegram polling)
-- `uvicorn` runs in foreground via `exec` (becomes PID 1, receives SIGTERM directly from Render)
-- Both share the same filesystem and `data/bot.db`
+- `bot.py` se ejecuta en segundo plano (polling de Telegram)
+- `uvicorn` se ejecuta en primer plano via `exec` (se convierte en PID 1, recibe SIGTERM directamente de Render)
+- Ambos comparten el mismo sistema de archivos y `data/bot.db`
 
-### Required Environment Variables on Render
-- `OPENAI_API_KEY` — OpenAI API key for classification and reply generation
-- `TELEGRAM_BOT_TOKEN` — Telegram bot token for message polling and sending
+### Variables de entorno requeridas en Render
+- `OPENAI_API_KEY` — clave de API de OpenAI para clasificación y generación de respuestas
+- `TELEGRAM_BOT_TOKEN` — token del bot de Telegram para polling y envío de mensajes
 - `PYTHON_VERSION=3.12`
-- `CLIENT_ID` (optional, defaults to "cliente_demo")
-- `PROPERTY_ID` (optional, defaults to "emilias_cabin")
-- `TELEGRAM_ALERT_CHAT_IDS` (optional, comma-separated Telegram chat IDs for staff alerts)
+- `CLIENT_ID` (opcional, por defecto "cliente_demo")
+- `PROPERTY_ID` (opcional, por defecto "emilias_cabin")
+- `TELEGRAM_ALERT_CHAT_IDS` (opcional, chat IDs de Telegram separados por comas para alertas al equipo)
 
-### Dependencies (requirements.txt)
+### Dependencias (requirements.txt)
 ```
 openai==2.24.0
 lingua-language-detector==2.2.0
@@ -236,58 +236,58 @@ fastapi==0.135.1
 uvicorn[standard]==0.41.0
 ```
 
-### Known Deployment Limitations
-- **SQLite is ephemeral on Render.** Every deploy or service restart wipes `data/bot.db`. The seed script repopulates demo data, but real conversation history is lost.
-- **No authentication.** The panel URL is public. Anyone with the URL can view all data.
-- **Single-process bot.** If `bot.py` crashes in background, the API continues but the bot stops silently. No auto-restart or health monitoring for the background process.
-- **In-memory chat history.** Bot conversation context is lost on every restart.
+### Limitaciones conocidas del despliegue
+- **SQLite es efímero en Render.** Cada deploy o reinicio del servicio borra `data/bot.db`. El script de seed repopula los datos demo, pero el historial real de conversaciones se pierde.
+- **Sin autenticación.** La URL del panel es pública. Cualquiera con la URL puede ver todos los datos.
+- **Bot de proceso único.** Si `bot.py` se cae en segundo plano, la API continúa pero el bot se detiene silenciosamente. No hay reinicio automático ni monitorización del proceso en segundo plano.
+- **Historial de chat en memoria.** El contexto de conversación del bot se pierde en cada reinicio.
 
-## File Structure
+## Estructura de archivos
 
 ```
 booking-bot-sandbox/
-    api.py                  # FastAPI server
-    bot.py                  # Telegram bot main loop
-    config.py               # Centralized configuration (loaded at import time)
-    main.py                 # Legacy compatibility alias for bot.py (not used by start.sh)
-    start.sh                # Render startup script (runs bot.py + uvicorn)
-    render.yaml             # Render blueprint
-    requirements.txt        # Python dependencies (full)
-    requirements-api.txt    # Python dependencies (API-only, for reference)
+    api.py                  # Servidor FastAPI
+    bot.py                  # Bucle principal del bot de Telegram
+    config.py               # Configuración centralizada (cargada en el momento de importación)
+    main.py                 # Alias de compatibilidad legacy para bot.py (no usado por start.sh)
+    start.sh                # Script de arranque de Render (ejecuta bot.py + uvicorn)
+    render.yaml             # Blueprint de Render
+    requirements.txt        # Dependencias Python (completas)
+    requirements-api.txt    # Dependencias Python (solo API, como referencia)
     channels/
-        base_channel.py     # Channel interface
-        telegram.py         # Telegram implementation
+        base_channel.py     # Interfaz de canal
+        telegram.py         # Implementación de Telegram
     services/
-        database.py         # SQLite persistence layer
-        logger.py           # File-based logging
-        openai_client.py    # OpenAI API wrapper + language detection
-        processor.py        # Message classification and reply pipeline
-        property_manager.py # Filesystem knowledge base loader
-        routing.py          # Knowledge base topic routing + keyword detection
+        database.py         # Capa de persistencia SQLite
+        logger.py           # Logging en archivo
+        openai_client.py    # Wrapper de OpenAI API + detección de idioma
+        processor.py        # Pipeline de clasificación y generación de respuestas
+        property_manager.py # Cargador de base de conocimiento desde sistema de archivos
+        routing.py          # Enrutamiento de topics de la base de conocimiento + detección de palabras clave
     prompts/
-        system_reply.txt    # Guest reply system prompt (templated)
-        system_classifier.txt # Classification system prompt
+        system_reply.txt    # Prompt del sistema para respuestas al huésped (con plantilla)
+        system_classifier.txt # Prompt del sistema para clasificación
     knowledge/
         clients/{CLIENT_ID}/properties/{PROPERTY_ID}/
             property.json
             knowledge_base/*.txt
     static/
-        index.html          # Inbox view (landing page)
-        conversation.html   # Conversation detail + timeline
-        alerts.html         # Alerts list
-        css/style.css       # All styles
-        js/api.js           # Shared JS utilities
+        index.html          # Vista de bandeja de entrada (página de inicio)
+        conversation.html   # Detalle de conversación + timeline
+        alerts.html         # Lista de alertas
+        css/style.css       # Todos los estilos
+        js/api.js           # Utilidades JS compartidas
     tools/
-        seed_demo.py        # Demo data seeder (run via api.py on startup)
-        build_knowledge_base.py  # Support script: builds knowledge base from raw files
-    datasets/               # ML training data and dataset build scripts
+        seed_demo.py        # Seeder de datos demo (ejecutado por api.py al arrancar)
+        build_knowledge_base.py  # Script de soporte: construye la base de conocimiento desde archivos raw
+    datasets/               # Datos de entrenamiento ML y scripts de construcción de datasets
     data/
-        bot.db              # SQLite database (created at runtime, not tracked)
+        bot.db              # Base de datos SQLite (creada en runtime, no versionada)
     tests/
-        test_classifier.py   # Classification accuracy tests
+        test_classifier.py   # Tests de precisión de clasificación
         classification_dataset.json
     docs/
-        ARCHITECTURE.md      # This file
-        PRODUCT_VISION.md    # Long-term product direction
-        ROADMAP.md           # Implementation roadmap
+        ARCHITECTURE.md      # Este archivo
+        PRODUCT_VISION.md    # Dirección del producto a largo plazo
+        ROADMAP.md           # Roadmap de implementación
 ```

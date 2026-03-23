@@ -1,358 +1,358 @@
 # Roadmap
 
-Last updated: 2026-03-12
+Última actualización: 2026-03-12
 
-## Milestone Structure
+## Estructura de milestones
 
-The roadmap is organized into phases, each containing small implementation blocks. Each block has a clear scope, a demoable outcome, and explicit boundaries on what NOT to build.
+El roadmap está organizado en fases, cada una con pequeños bloques de implementación. Cada bloque tiene un alcance claro, un resultado demostrable y límites explícitos sobre qué NO construir.
 
-Size estimates:
-- **Small** = 1-2 files changed, < 1 session of focused work
-- **Medium** = 3-5 files changed, 1-2 sessions
-- **Large** = 5+ files changed or significant refactoring, 2+ sessions
-
----
-
-## Phase 0: Cloud Deployment (COMPLETE)
-
-Single-property bot + operational inbox + Render deployment.
-
-What was built:
-- Telegram bot with AI classification and reply generation
-- SQLite persistence layer (conversations, interactions, alerts)
-- FastAPI API with read and write endpoints
-- Admin panel: inbox view (card-based), conversation timeline with inline alerts, alerts page
-- Mobile responsive CSS
-- Single Render service running bot + API together via start.sh
-- Demo data seeding for empty databases
+Estimaciones de tamaño:
+- **Pequeño** = 1-2 archivos modificados, < 1 sesión de trabajo concentrado
+- **Medio** = 3-5 archivos modificados, 1-2 sesiones
+- **Grande** = 5+ archivos modificados o refactoring significativo, 2+ sesiones
 
 ---
 
-## Phase 1: Data Foundation
+## Fase 0: Despliegue en la nube (COMPLETADA)
 
-Goal: Make the system reliable enough for a real pilot.
+Bot para una sola propiedad + bandeja de entrada operativa + despliegue en Render.
 
-### Milestone 1A: PostgreSQL Migration
-
-**Size:** Medium
-**Goal:** Data persists across deploys and restarts.
-**Why now:** Every Render deploy wipes the SQLite file. Nothing else matters until data survives.
-
-**Scope:**
-- Add `psycopg2-binary` to requirements.txt
-- Modify `services/database.py`: detect `DATABASE_URL` env var. If present, use PostgreSQL. If absent, fall back to SQLite (local dev unchanged).
-- Adjust SQL syntax: `?` to `%s` for parameters, `AUTOINCREMENT` to `SERIAL`, `datetime('now')` to `NOW()`, `INTEGER` booleans to proper `BOOLEAN` where needed.
-- Update `seed_demo.py` to work with both backends.
-- Add `DATABASE_URL` to Render env vars (Render provides this when you attach a PostgreSQL instance).
-- Test: deploy, send messages, redeploy, verify data survives.
-
-**What NOT to build:** No ORM. No Alembic. No migration framework. 3 tables do not need migration tooling.
-**Risk:** SQL dialect differences between SQLite and PostgreSQL. Small but must be tested.
-**Demoable outcome:** Redeploy the service. All conversations still in the panel.
-
-### Milestone 1B: Panel Authentication
-
-**Size:** Small
-**Goal:** Guest data is not publicly accessible.
-**Why now:** The panel URL is public. Anyone can read all conversations. This is a legal and trust problem.
-
-**Scope:**
-- Add `PANEL_PASSWORD` and `SECRET_KEY` env vars.
-- Create a login page (`static/login.html`): one password input, one button.
-- Add FastAPI middleware: check signed HTTP-only cookie on every request to `/`, `/static/*`, `/api/*`. If missing or invalid, redirect to login.
-- `/api/health` remains public (Render health checks).
-- Use Python's `hmac` module for cookie signing. No external auth library.
-
-**What NOT to build:** No user accounts. No registration. No email/password. No OAuth. No roles. One shared password.
-**Risk:** Cookie must be HttpOnly, Secure, SameSite=Strict. Signing key from env var, never hardcoded.
-**Demoable outcome:** Share the Render URL with someone. They see a login page. Correct password grants access.
-**Dependency:** Milestone 1A (no point securing ephemeral data).
+Qué se construyó:
+- Bot de Telegram con clasificación IA y generación de respuestas
+- Capa de persistencia SQLite (conversaciones, interacciones, alertas)
+- API FastAPI con endpoints de lectura y escritura
+- Panel de administración: vista de bandeja de entrada (tarjetas), timeline de conversación con alertas inline, página de alertas
+- CSS responsive para móvil
+- Servicio único en Render ejecutando bot + API juntos via start.sh
+- Seeding de datos demo para bases de datos vacías
 
 ---
 
-## Phase 2: Property Configuration
+## Fase 1: Base de datos
 
-Goal: A host can configure their property from the panel instead of editing files.
+Objetivo: Hacer el sistema suficientemente fiable para un piloto real.
 
-### Milestone 2A: Property Data in Database
+### Milestone 1A: Migración a PostgreSQL
 
-**Size:** Medium
-**Goal:** Property configuration and knowledge base stored in the database.
-**Why now:** This is the foundation for multi-property. Currently adding a property requires filesystem access and a redeploy.
+**Tamaño:** Medio
+**Objetivo:** Los datos persisten entre deploys y reinicios.
+**Por qué ahora:** Cada deploy en Render borra el archivo SQLite. Nada más importa hasta que los datos sobrevivan.
 
-**Scope:**
-- New table `properties`: id, client_id, name, city, country, contact_name, contact_phone, default_language, created_at, updated_at.
-- New table `knowledge_entries`: id, property_id, topic, content, updated_at. Topics: faq, checkin, house_rules, emergencies, host_notes, local_tips.
-- Migration helper: on startup, if `properties` table is empty but filesystem knowledge exists, auto-import into DB.
-- New read endpoint: `GET /api/properties/{id}` returns property profile + all knowledge entries.
+**Alcance:**
+- Añadir `psycopg2-binary` a requirements.txt
+- Modificar `services/database.py`: detectar variable de entorno `DATABASE_URL`. Si existe, usar PostgreSQL. Si no, usar SQLite como fallback (desarrollo local sin cambios).
+- Ajustar sintaxis SQL: `?` a `%s` para parámetros, `AUTOINCREMENT` a `SERIAL`, `datetime('now')` a `NOW()`, booleanos `INTEGER` a `BOOLEAN` donde corresponda.
+- Actualizar `seed_demo.py` para funcionar con ambos backends.
+- Añadir `DATABASE_URL` a las variables de entorno de Render (Render lo proporciona al adjuntar una instancia PostgreSQL).
+- Test: desplegar, enviar mensajes, redesplegar, verificar que los datos sobreviven.
 
-**What NOT to build:** No property creation from the panel yet. No editor UI. Just the data layer.
-**Risk:** Must coexist with filesystem loading during transition.
-**Demoable outcome:** `GET /api/properties/1` returns the full property profile and knowledge base from the database.
+**Qué NO construir:** Sin ORM. Sin Alembic. Sin framework de migraciones. 3 tablas no necesitan herramientas de migración.
+**Riesgo:** Diferencias de dialecto SQL entre SQLite y PostgreSQL. Pequeño pero debe testearse.
+**Resultado demostrable:** Redesplegar el servicio. Todas las conversaciones siguen en el panel.
 
-### Milestone 2B: Property Editor Panel
+### Milestone 1B: Autenticación del panel
 
-**Size:** Medium
-**Goal:** Host can edit property details and knowledge base from the panel.
-**Why now:** The property data is in the DB (2A). The host needs a UI to edit it.
+**Tamaño:** Pequeño
+**Objetivo:** Los datos de huéspedes no son públicamente accesibles.
+**Por qué ahora:** La URL del panel es pública. Cualquiera puede leer todas las conversaciones. Es un problema legal y de confianza.
 
-**Scope:**
-- New page: `static/property.html` — shows property profile fields (editable inputs) and knowledge sections (editable text areas).
-- Each section has a Save button.
-- New write endpoints: `PATCH /api/properties/{id}` for profile fields, `PUT /api/properties/{id}/knowledge/{topic}` for knowledge content.
-- Add "Properties" link to nav bar.
+**Alcance:**
+- Añadir variables de entorno `PANEL_PASSWORD` y `SECRET_KEY`.
+- Crear página de login (`static/login.html`): un input de contraseña, un botón.
+- Añadir middleware FastAPI: verificar cookie HTTP-only firmada en cada solicitud a `/`, `/static/*`, `/api/*`. Si falta o es inválida, redirigir al login.
+- `/api/health` permanece público (health checks de Render).
+- Usar el módulo `hmac` de Python para firma de cookies. Sin biblioteca de autenticación externa.
 
-**What NOT to build:** No property creation wizard. No image upload. No map. No amenity tags. Just the 6 existing knowledge topics + profile fields.
-**Risk:** None significant. Straightforward CRUD.
-**Demoable outcome:** Host opens the panel, navigates to property, changes the wifi password, clicks Save. Done.
-**Dependency:** Milestone 2A.
-
-### Milestone 2C: Bot Reads Property Context from Database
-
-**Size:** Large (this is the key refactor)
-**Goal:** `process_message()` loads property context dynamically per conversation, not from startup globals.
-**Why now:** This is the wall between "one bot per property" and "one bot serving many properties." It must be done before multi-property goes live.
-
-**Scope:**
-- New function in `services/property_manager.py`: `get_property_context_from_db(property_id)` that reads from the `properties` and `knowledge_entries` tables.
-- Modify `services/processor.py`: `process_message()` accepts property context as a parameter instead of reading from config globals.
-- Modify `bot.py`: before calling `process_message()`, look up the property context from DB using the conversation's `property_id`.
-- System prompt is templated per-request with the property's context, not once at startup.
-- Filesystem loading remains as fallback when `DATABASE_URL` is not set.
-
-**What NOT to build:** No multi-property bot routing yet. The bot still serves one property per instance. But the processing pipeline no longer assumes a single property.
-**Risk:** This touches the core processing pipeline. Thorough testing required. Classification tests (22 cases) must still pass.
-**Demoable outcome:** Edit a property's FAQ in the panel. Send a guest message about that topic. Bot uses the updated knowledge in its reply. No redeploy needed.
-**Dependency:** Milestone 2A, 2B.
+**Qué NO construir:** Sin cuentas de usuario. Sin registro. Sin email/contraseña. Sin OAuth. Sin roles. Una contraseña compartida.
+**Riesgo:** La cookie debe ser HttpOnly, Secure, SameSite=Strict. Clave de firma desde variable de entorno, nunca hardcodeada.
+**Resultado demostrable:** Compartir la URL de Render con alguien. Ven una página de login. La contraseña correcta da acceso.
+**Dependencia:** Milestone 1A (no tiene sentido asegurar datos efímeros).
 
 ---
 
-## Phase 3: Pilot-Ready
+## Fase 2: Configuración de propiedades
 
-Goal: System works reliably for one real host with 1-3 properties.
+Objetivo: Un anfitrión puede configurar su propiedad desde el panel en lugar de editar archivos.
 
-### Milestone 3A: Bot Health Monitoring
+### Milestone 2A: Datos de propiedad en base de datos
 
-**Size:** Small
-**Goal:** Detect and auto-recover when bot.py crashes silently.
-**Why now:** The bot runs in background. If it crashes, nobody knows until a guest stops getting replies.
+**Tamaño:** Medio
+**Objetivo:** Configuración de propiedad y base de conocimiento almacenadas en la base de datos.
+**Por qué ahora:** Esta es la base para multi-propiedad. Actualmente añadir una propiedad requiere acceso al sistema de archivos y un redespliegue.
 
-**Scope:**
-- bot.py writes a `last_bot_poll` timestamp to the database on every polling cycle.
-- `/api/health` checks this timestamp. If older than 90 seconds, returns unhealthy status.
-- Render's built-in health check restarts the service when unhealthy.
+**Alcance:**
+- Nueva tabla `properties`: id, client_id, name, city, country, contact_name, contact_phone, default_language, created_at, updated_at.
+- Nueva tabla `knowledge_entries`: id, property_id, topic, content, updated_at. Topics: faq, checkin, house_rules, emergencies, host_notes, local_tips.
+- Helper de migración: al arrancar, si la tabla `properties` está vacía pero existe conocimiento en el sistema de archivos, auto-importar a la DB.
+- Nuevo endpoint de lectura: `GET /api/properties/{id}` devuelve el perfil de la propiedad + todas las entradas de conocimiento.
 
-**What NOT to build:** No complex process manager. No supervisor. Just a timestamp check.
-**Risk:** Minimal. One write per poll cycle, one read per health check.
-**Demoable outcome:** Kill bot.py manually. Within 90 seconds, Render restarts the service. Bot resumes.
+**Qué NO construir:** Sin creación de propiedades desde el panel todavía. Sin UI de editor. Solo la capa de datos.
+**Riesgo:** Debe coexistir con la carga desde sistema de archivos durante la transición.
+**Resultado demostrable:** `GET /api/properties/1` devuelve el perfil completo de la propiedad y la base de conocimiento desde la base de datos.
 
-### Milestone 3B: Manual Reservations
+### Milestone 2B: Panel editor de propiedades
 
-**Size:** Medium
-**Goal:** Host can enter guest reservations. Bot knows who is staying and when.
-**Why now:** This transforms the bot from "generic assistant" to "guest-aware concierge."
+**Tamaño:** Medio
+**Objetivo:** El anfitrión puede editar los detalles de la propiedad y la base de conocimiento desde el panel.
+**Por qué ahora:** Los datos de propiedad están en la DB (2A). El anfitrión necesita una UI para editarlos.
 
-**Scope:**
-- New table `reservations`: id, property_id, guest_name, guest_contact, channel, channel_contact_id, check_in, check_out, status (confirmed, checked_in, checked_out), notes, created_at.
-- New panel page: `static/reservations.html` — table with Add/Edit forms. Date inputs, no calendar widget.
-- New endpoints: `GET /api/reservations`, `POST /api/reservations`, `PATCH /api/reservations/{id}`.
-- bot.py: before processing, look up active reservation for the chat_id. If found, include guest name and stay dates in the system prompt.
+**Alcance:**
+- Nueva página: `static/property.html` — muestra campos del perfil de propiedad (inputs editables) y secciones de conocimiento (áreas de texto editables).
+- Cada sección tiene un botón de Guardar.
+- Nuevos endpoints de escritura: `PATCH /api/properties/{id}` para campos de perfil, `PUT /api/properties/{id}/knowledge/{topic}` para contenido de conocimiento.
+- Añadir enlace "Propiedades" a la barra de navegación.
 
-**What NOT to build:** No PMS integration. No iCal sync. No calendar UI. Manual entry only.
-**Risk:** Matching chat_id to reservation requires the host to enter the guest's Telegram contact when creating the reservation. This is a UX friction point to monitor.
-**Demoable outcome:** Host creates a reservation for "John, checking in March 15." John sends a Telegram message. Bot's reply references his name and stay dates.
-**Dependency:** Milestone 2C (bot must load property context dynamically).
+**Qué NO construir:** Sin asistente de creación de propiedades. Sin subida de imágenes. Sin mapa. Sin etiquetas de comodidades. Solo los 6 topics de conocimiento existentes + campos de perfil.
+**Riesgo:** Ninguno significativo. CRUD directo.
+**Resultado demostrable:** El anfitrión abre el panel, navega a la propiedad, cambia la contraseña del wifi, hace clic en Guardar. Listo.
+**Dependencia:** Milestone 2A.
 
-### Milestone 3C: Operator-Initiated Messages
+### Milestone 2C: El bot lee el contexto de propiedad desde la base de datos
 
-**Size:** Medium
-**Goal:** Host can reply to a guest directly from the panel.
-**Why now:** When the bot escalates, the host currently has no way to respond from the panel. They have to open Telegram separately.
+**Tamaño:** Grande (este es el refactor clave)
+**Objetivo:** `process_message()` carga el contexto de propiedad dinámicamente por conversación, no desde variables globales de inicio.
+**Por qué ahora:** Este es el muro entre "un bot por propiedad" y "un bot sirviendo muchas propiedades". Debe hacerse antes de que multi-propiedad entre en producción.
 
-**Scope:**
-- New table: `outbound_messages` — id, conversation_id, message_text, status (pending, sent, failed), created_at, sent_at.
-- Conversation detail page: add a text input + Send button below the timeline.
-- New endpoint: `POST /api/conversations/{id}/send` — writes to outbound_messages.
-- bot.py: on each polling cycle, check for pending outbound messages. Send via channel. Mark as sent.
+**Alcance:**
+- Nueva función en `services/property_manager.py`: `get_property_context_from_db(property_id)` que lee de las tablas `properties` y `knowledge_entries`.
+- Modificar `services/processor.py`: `process_message()` acepta el contexto de propiedad como parámetro en lugar de leer variables globales de configuración.
+- Modificar `bot.py`: antes de llamar a `process_message()`, buscar el contexto de propiedad en la DB usando el `property_id` de la conversación.
+- El prompt del sistema se construye con plantilla por solicitud con el contexto de la propiedad, no una vez al arrancar.
+- La carga desde sistema de archivos permanece como fallback cuando `DATABASE_URL` no está definido.
 
-**What NOT to build:** No real-time delivery. No read receipts. No typing indicators. The message appears in the panel after the next bot poll cycle (up to 30 seconds).
-**Risk:** The API does not directly access the Telegram channel. Messages go through the outbound queue. This is intentional — it keeps the API and bot cleanly separated.
-**Demoable outcome:** Host opens a conversation in the panel, types a reply, clicks Send. Guest receives it on Telegram within 30 seconds.
-**Dependency:** Milestone 2C.
-
-### Milestone 3D: Email Alerts
-
-**Size:** Small
-**Goal:** Host gets email notification when urgent incidents occur.
-**Why now:** Telegram alerts to staff already work. Email is universal — every host has email.
-
-**Scope:**
-- New env var: `ALERT_EMAIL`.
-- New file: `services/notifications.py` with `send_email_alert(subject, body)` using SMTP or a free-tier service (SendGrid free: 100 emails/day).
-- In `services/database.py`: after creating an alert with `urgent=True`, call `send_email_alert()`.
-
-**What NOT to build:** No email templates. No HTML email. Plain text. No configurable alert rules.
-**Risk:** SMTP can be slow or blocked. Send in a thread or fire-and-forget to avoid blocking the bot.
-**Demoable outcome:** Guest sends urgent message. Host receives email notification within seconds.
-**Dependency:** Milestone 1A (need persistent DB to avoid duplicate alerts on restart).
+**Qué NO construir:** Sin enrutamiento multi-bot todavía. El bot sigue sirviendo una sola propiedad por instancia. Pero el pipeline de procesamiento ya no asume una sola propiedad.
+**Riesgo:** Esto toca el pipeline central de procesamiento. Se requieren tests exhaustivos. Los tests de clasificación (22 casos) deben seguir pasando.
+**Resultado demostrable:** Editar el FAQ de una propiedad en el panel. Enviar un mensaje de huésped sobre ese tema. El bot usa el conocimiento actualizado en su respuesta. Sin redespliegue.
+**Dependencia:** Milestone 2A, 2B.
 
 ---
 
-## Phase 4: Multi-Property SaaS
+## Fase 3: Listo para piloto
 
-Goal: One account manages multiple properties from a single panel.
+Objetivo: El sistema funciona de forma fiable para un anfitrión real con 1-3 propiedades.
 
-### Milestone 4A: Multi-Property Inbox
+### Milestone 3A: Monitorización del bot
 
-**Size:** Medium
-**Goal:** Inbox shows conversations from all properties, filterable by property.
+**Tamaño:** Pequeño
+**Objetivo:** Detectar y recuperar automáticamente cuando bot.py se cae silenciosamente.
+**Por qué ahora:** El bot se ejecuta en segundo plano. Si se cae, nadie lo sabe hasta que los huéspedes dejan de recibir respuestas.
 
-**Scope:**
-- Property filter dropdown in the inbox.
-- API: `GET /api/conversations` accepts optional `property_id` query parameter.
-- API: `GET /api/properties` returns list of all properties for the client.
-- Panel nav: add Properties section.
+**Alcance:**
+- bot.py escribe un timestamp `last_bot_poll` en la base de datos en cada ciclo de polling.
+- `/api/health` comprueba este timestamp. Si es más antiguo de 90 segundos, devuelve estado no saludable.
+- El health check integrado de Render reinicia el servicio cuando está no saludable.
 
-**Dependency:** Milestone 2B (property editor exists).
+**Qué NO construir:** Sin gestor de procesos complejo. Sin supervisor. Solo una comprobación de timestamp.
+**Riesgo:** Mínimo. Una escritura por ciclo de polling, una lectura por health check.
+**Resultado demostrable:** Matar bot.py manualmente. En 90 segundos, Render reinicia el servicio. El bot se reanuda.
 
-### Milestone 4B: Multi-Token Bot Routing
+### Milestone 3B: Reservas manuales
 
-**Size:** Large
-**Goal:** One bot instance polls multiple Telegram tokens (one per property).
+**Tamaño:** Medio
+**Objetivo:** El anfitrión puede registrar reservas de huéspedes. El bot sabe quién se hospeda y cuándo.
+**Por qué ahora:** Esto transforma el bot de "asistente genérico" a "conserje consciente del huésped".
 
-**Scope:**
-- Store Telegram bot token per property in the `properties` table.
-- bot.py: on startup, load all properties with tokens. Poll each in round-robin.
-- Each token maps to a property. When a message arrives on token X, route to property X.
-- Per-token error handling (one expired token doesn't crash all).
+**Alcance:**
+- Nueva tabla `reservations`: id, property_id, guest_name, guest_contact, channel, channel_contact_id, check_in, check_out, status (confirmed, checked_in, checked_out), notes, created_at.
+- Nueva página del panel: `static/reservations.html` — tabla con formularios de añadir/editar. Inputs de fecha, sin widget de calendario.
+- Nuevos endpoints: `GET /api/reservations`, `POST /api/reservations`, `PATCH /api/reservations/{id}`.
+- bot.py: antes de procesar, buscar la reserva activa para el chat_id. Si existe, incluir nombre del huésped y fechas de estancia en el prompt del sistema.
 
-**Risk:** Most complex change in the roadmap. Each token has its own update offset. Rate limiting must be per-token. Thorough testing required.
-**Dependency:** Milestone 2C, 3A.
+**Qué NO construir:** Sin integración con PMS. Sin sincronización iCal. Sin UI de calendario. Solo entrada manual.
+**Riesgo:** Vincular el chat_id a la reserva requiere que el anfitrión introduzca el contacto de Telegram del huésped al crear la reserva. Este es un punto de fricción en la UX a monitorizar.
+**Resultado demostrable:** El anfitrión crea una reserva para "Juan, check-in el 15 de marzo". Juan envía un mensaje de Telegram. La respuesta del bot hace referencia a su nombre y fechas de estancia.
+**Dependencia:** Milestone 2C (el bot debe cargar el contexto de propiedad dinámicamente).
 
-### Milestone 4C: Property Creation from Panel
+### Milestone 3C: Mensajes iniciados por el operador
 
-**Size:** Small
-**Goal:** Host can add a new property entirely from the panel.
+**Tamaño:** Medio
+**Objetivo:** El anfitrión puede responder a un huésped directamente desde el panel.
+**Por qué ahora:** Cuando el bot escala, el anfitrión actualmente no tiene forma de responder desde el panel. Tiene que abrir Telegram por separado.
 
-**Scope:**
-- "Add Property" button on properties page.
-- Creates DB row with empty knowledge entries.
-- Host fills in profile and knowledge through the existing editor (Milestone 2B).
+**Alcance:**
+- Nueva tabla: `outbound_messages` — id, conversation_id, message_text, status (pending, sent, failed), created_at, sent_at.
+- Página de detalle de conversación: añadir un input de texto + botón Enviar debajo del timeline.
+- Nuevo endpoint: `POST /api/conversations/{id}/send` — escribe en outbound_messages.
+- bot.py: en cada ciclo de polling, comprobar mensajes salientes pendientes. Enviar via canal. Marcar como enviado.
 
-**Dependency:** Milestone 2B, 4A.
+**Qué NO construir:** Sin entrega en tiempo real. Sin confirmaciones de lectura. Sin indicadores de escritura. El mensaje aparece en el panel después del siguiente ciclo de polling del bot (hasta 30 segundos).
+**Riesgo:** La API no accede directamente al canal de Telegram. Los mensajes pasan por la cola de salida. Esto es intencional — mantiene la API y el bot limpiamente separados.
+**Resultado demostrable:** El anfitrión abre una conversación en el panel, escribe una respuesta, hace clic en Enviar. El huésped la recibe en Telegram en 30 segundos.
+**Dependencia:** Milestone 2C.
 
----
+### Milestone 3D: Alertas por email
 
-## Phase 5: Channel Expansion
+**Tamaño:** Pequeño
+**Objetivo:** El anfitrión recibe notificación por email cuando ocurren incidencias urgentes.
+**Por qué ahora:** Las alertas de Telegram al equipo ya funcionan. El email es universal — todos los anfitriones tienen email.
 
-Goal: Guests communicate via WhatsApp.
+**Alcance:**
+- Nueva variable de entorno: `ALERT_EMAIL`.
+- Nuevo archivo: `services/notifications.py` con `send_email_alert(subject, body)` usando SMTP o un servicio gratuito (SendGrid gratuito: 100 emails/día).
+- En `services/database.py`: después de crear una alerta con `urgent=True`, llamar a `send_email_alert()`.
 
-### Milestone 5A: Generalize Channel Contact ID
-
-**Size:** Medium (migration)
-**Goal:** Database supports multiple channel types, not just Telegram.
-
-**Scope:**
-- Rename `telegram_chat_id` to `channel_contact_id` in all tables.
-- Add `channel` column to `conversations` (telegram, whatsapp, email).
-- Update all queries, API responses, and panel references.
-
-**Note:** This rename is easier to do early (less data). Consider doing it during Phase 2 or 3 to reduce future migration pain.
-
-### Milestone 5B: Webhook Receiver
-
-**Size:** Medium
-**Goal:** API can receive incoming messages from webhook-based channels.
-
-**Scope:**
-- New endpoint: `POST /api/webhooks/{channel}` — receives messages from WhatsApp, etc.
-- Extract `process_message()` into a shared service callable from both bot.py (polling) and api.py (webhook).
-- This is the refactor that unifies polling and push channels.
-
-**Dependency:** Milestone 5A, 2C.
-
-### Milestone 5C: WhatsApp Integration
-
-**Size:** Large
-**Goal:** Guests message via WhatsApp. Bot replies. Host sees it in the inbox.
-
-**Scope:**
-- Implement `channels/whatsapp.py` extending BaseChannel.
-- WhatsApp Business API integration (Meta Cloud API).
-- Template message approval for proactive messaging.
-- Channel icon in inbox cards.
-
-**Dependency:** Milestone 5A, 5B. Also requires Meta Business API approval (external dependency, weeks of lead time).
+**Qué NO construir:** Sin plantillas de email. Sin email HTML. Solo texto plano. Sin reglas de alerta configurables.
+**Riesgo:** SMTP puede ser lento o bloqueado. Enviar en un hilo o de forma fire-and-forget para no bloquear el bot.
+**Resultado demostrable:** El huésped envía un mensaje urgente. El anfitrión recibe notificación por email en segundos.
+**Dependencia:** Milestone 1A (se necesita DB persistente para evitar alertas duplicadas al reiniciar).
 
 ---
 
-## Unavoidable Refactors
+## Fase 4: SaaS multi-propiedad
 
-| Refactor | When | Why |
+Objetivo: Una cuenta gestiona múltiples propiedades desde un único panel.
+
+### Milestone 4A: Bandeja de entrada multi-propiedad
+
+**Tamaño:** Medio
+**Objetivo:** La bandeja de entrada muestra conversaciones de todas las propiedades, filtrable por propiedad.
+
+**Alcance:**
+- Dropdown de filtro de propiedad en la bandeja de entrada.
+- API: `GET /api/conversations` acepta parámetro de query opcional `property_id`.
+- API: `GET /api/properties` devuelve lista de todas las propiedades del cliente.
+- Navegación del panel: añadir sección Propiedades.
+
+**Dependencia:** Milestone 2B (el editor de propiedades existe).
+
+### Milestone 4B: Enrutamiento multi-token del bot
+
+**Tamaño:** Grande
+**Objetivo:** Una instancia del bot hace polling de múltiples tokens de Telegram (uno por propiedad).
+
+**Alcance:**
+- Almacenar el token del bot de Telegram por propiedad en la tabla `properties`.
+- bot.py: al arrancar, cargar todas las propiedades con tokens. Hacer polling de cada una en round-robin.
+- Cada token se mapea a una propiedad. Cuando llega un mensaje en el token X, enrutar a la propiedad X.
+- Manejo de errores por token (un token expirado no tumba todos).
+
+**Riesgo:** El cambio más complejo del roadmap. Cada token tiene su propio update offset. El rate limiting debe ser por token. Se requieren tests exhaustivos.
+**Dependencia:** Milestone 2C, 3A.
+
+### Milestone 4C: Creación de propiedades desde el panel
+
+**Tamaño:** Pequeño
+**Objetivo:** El anfitrión puede añadir una nueva propiedad completamente desde el panel.
+
+**Alcance:**
+- Botón "Añadir propiedad" en la página de propiedades.
+- Crea una fila en la DB con entradas de conocimiento vacías.
+- El anfitrión rellena el perfil y el conocimiento mediante el editor existente (Milestone 2B).
+
+**Dependencia:** Milestone 2B, 4A.
+
+---
+
+## Fase 5: Expansión de canales
+
+Objetivo: Los huéspedes se comunican via WhatsApp.
+
+### Milestone 5A: Generalizar el contact ID de canal
+
+**Tamaño:** Medio (migración)
+**Objetivo:** La base de datos soporta múltiples tipos de canal, no solo Telegram.
+
+**Alcance:**
+- Renombrar `telegram_chat_id` a `channel_contact_id` en todas las tablas.
+- Añadir columna `channel` a `conversations` (telegram, whatsapp, email).
+- Actualizar todas las consultas, respuestas de la API y referencias del panel.
+
+**Nota:** Este renombrado es más fácil de hacer pronto (menos datos). Considerar hacerlo durante la Fase 2 o 3 para reducir el dolor de migración futuro.
+
+### Milestone 5B: Receptor de webhooks
+
+**Tamaño:** Medio
+**Objetivo:** La API puede recibir mensajes entrantes de canales basados en webhooks.
+
+**Alcance:**
+- Nuevo endpoint: `POST /api/webhooks/{channel}` — recibe mensajes de WhatsApp, etc.
+- Extraer `process_message()` en un servicio compartido llamable tanto desde bot.py (polling) como desde api.py (webhook).
+- Este es el refactor que unifica los canales de polling y push.
+
+**Dependencia:** Milestone 5A, 2C.
+
+### Milestone 5C: Integración con WhatsApp
+
+**Tamaño:** Grande
+**Objetivo:** Los huéspedes se comunican via WhatsApp. El bot responde. El anfitrión lo ve en la bandeja de entrada.
+
+**Alcance:**
+- Implementar `channels/whatsapp.py` extendiendo BaseChannel.
+- Integración con la API de WhatsApp Business (Meta Cloud API).
+- Aprobación de mensajes plantilla para mensajería proactiva.
+- Icono de canal en las tarjetas de la bandeja de entrada.
+
+**Dependencia:** Milestone 5A, 5B. También requiere aprobación de Meta Business API (dependencia externa, semanas de tiempo de espera).
+
+---
+
+## Refactors inevitables
+
+| Refactor | Cuándo | Por qué |
 |----------|------|-----|
-| `config.py` dynamic property loading | Phase 2 (Milestone 2C) | Without this, one bot = one property forever |
-| `telegram_chat_id` to `channel_contact_id` | Phase 2-3 (or Phase 5A) | Gets harder with more data. Do it before pilot if possible. |
-| `process_message()` callable from API | Phase 5 (Milestone 5B) | Webhook channels need the API to process messages |
-| Bot polling loop supports multiple tokens | Phase 4 (Milestone 4B) | Multi-property requires multi-token polling |
+| Carga dinámica de propiedad en `config.py` | Fase 2 (Milestone 2C) | Sin esto, un bot = una propiedad para siempre |
+| `telegram_chat_id` → `channel_contact_id` | Fase 2-3 (o Fase 5A) | Se complica con más datos. Hacerlo antes del piloto si es posible. |
+| `process_message()` llamable desde la API | Fase 5 (Milestone 5B) | Los canales webhook necesitan que la API procese mensajes |
+| Bucle de polling del bot con soporte multi-token | Fase 4 (Milestone 4B) | Multi-propiedad requiere polling multi-token |
 
-## Features Explicitly Considered Premature
+## Funcionalidades explícitamente consideradas prematuras
 
-| Feature | Why premature | When it becomes relevant |
+| Funcionalidad | Por qué es prematura | Cuándo se vuelve relevante |
 |---------|---------------|------------------------|
-| PMS/iCal integration | Every PMS has a different API. Manual entry validates the concept first. | After manual reservations are validated with a real host. |
-| Automated scheduled messages | Requires reservations + templates + scheduler. | After operator-initiated messaging works. |
-| Analytics dashboard | Hosts with 3 properties don't need charts. | When managing 10+ properties. |
-| AI fine-tuning per property | Base model with good KB context is sufficient. | When reply quality becomes a competitive issue. |
-| Multi-language panel UI | Host language is known. Hardcode one. | When selling to non-Spanish-speaking markets. |
-| Mobile native app | Responsive web panel is adequate. | When mobile usage justifies the maintenance cost. |
-| Complex RBAC | Simple password auth first. | When multiple team members need different access levels. |
-| Docker/containerization | Render's native Python runtime works. | When deployment complexity requires it. |
-| Migration framework (Alembic) | 3 tables don't need migration tooling. | When schema has 15+ tables. |
-| Facebook Messenger / Booking.com | WhatsApp covers 80%+ of the market. | After WhatsApp integration is validated. |
+| Integración PMS/iCal | Cada PMS tiene una API diferente. La entrada manual valida el concepto primero. | Tras validar las reservas manuales con un anfitrión real. |
+| Mensajes programados automatizados | Requiere reservas + plantillas + scheduler. | Tras implementar la mensajería iniciada por el operador. |
+| Dashboard de analítica | Los anfitriones con 3 propiedades no necesitan gráficos. | Al gestionar 10+ propiedades. |
+| Fine-tuning de IA por propiedad | El modelo base con buen contexto de KB es suficiente. | Cuando la calidad de las respuestas se convierte en un problema competitivo. |
+| Panel UI multiidioma | El idioma del anfitrión es conocido. Hardcodear uno. | Al vender a mercados no hispanohablantes. |
+| App móvil nativa | El panel web responsive es adecuado. | Cuando el uso móvil justifique el coste de mantenimiento. |
+| RBAC complejo | Primero autenticación simple con contraseña. | Cuando varios miembros del equipo necesiten niveles de acceso diferentes. |
+| Docker/contenedorización | El runtime Python nativo de Render funciona. | Cuando la complejidad del despliegue lo requiera. |
+| Framework de migraciones (Alembic) | 3 tablas no necesitan herramientas de migración. | Cuando el esquema tenga 15+ tablas. |
+| Facebook Messenger / Booking.com | WhatsApp cubre más del 80% del mercado. | Tras validar la integración con WhatsApp. |
 
-## Dependency Graph
+## Grafo de dependencias
 
 ```
-Phase 0 (COMPLETE)
+Fase 0 (COMPLETADA)
     |
     v
 1A: PostgreSQL ─────────────────────────────────┐
     |                                            |
     v                                            |
-1B: Auth ────────────────────────┐               |
+1B: Autenticación ───────────────┐               |
     |                            |               |
     v                            v               v
-2A: Property Data in DB    3D: Email Alerts    3A: Bot Health
+2A: Datos de propiedad en DB    3D: Alertas email    3A: Salud del bot
     |
     v
-2B: Property Editor
+2B: Editor de propiedades
     |
     v
-2C: Dynamic Property Context (KEY REFACTOR)
+2C: Contexto dinámico de propiedad (REFACTOR CLAVE)
     |
     ├──────────────────┐
     v                  v
-3B: Reservations    3C: Operator Messages
+3B: Reservas    3C: Mensajes del operador
     |                  |
     v                  v
-4A: Multi-Property Inbox
+4A: Bandeja de entrada multi-propiedad
     |
     v
-4B: Multi-Token Bot
+4B: Bot multi-token
     |
     v
-4C: Property Creation
+4C: Creación de propiedades
     |
     v
-5A: Channel Contact ID (can be done earlier)
+5A: Channel Contact ID (puede hacerse antes)
     |
     v
-5B: Webhook Receiver
+5B: Receptor de webhooks
     |
     v
 5C: WhatsApp
 ```
 
-## Next Concrete Action
+## Próxima acción concreta
 
-**Milestone 1A: PostgreSQL migration.** Everything else is blocked by ephemeral data.
+**Milestone 1A: Migración a PostgreSQL.** Todo lo demás está bloqueado por los datos efímeros.
