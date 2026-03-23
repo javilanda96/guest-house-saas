@@ -7,3 +7,10 @@ __pycache__/
 logs/
 *.db
 .claude/
+
+# Runtime artifacts
+data/
+logs_classifier.txt
+logs_reply.txt
+logs_*.txt
+.pytest_cache/

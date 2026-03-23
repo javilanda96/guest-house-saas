@@ -46,7 +46,7 @@ from services.database import (
     VALID_CONV_OWNERS,
     VALID_KNOWLEDGE_TOPICS,
 )
-from seed_demo import seed_if_empty
+from tools.seed_demo import seed_if_empty
 
 # =========================================================
 # Auth configuration
