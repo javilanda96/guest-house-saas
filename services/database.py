@@ -554,7 +554,7 @@ def get_conversation_interactions(
     """
     with _conn() as conn:
         conv = conn.execute(
-            "SELECT id, telegram_chat_id FROM conversations WHERE id = ?",
+            "SELECT id, telegram_chat_id, status, owner FROM conversations WHERE id = ?",
             (conversation_id,),
         ).fetchone()
 
@@ -603,6 +603,8 @@ def get_conversation_interactions(
     return {
         "conversation_id": conv["id"],
         "telegram_chat_id": conv["telegram_chat_id"],
+        "status": conv["status"],
+        "owner": conv["owner"],
         "messages": messages,
         "total": total,
         "limit": limit,

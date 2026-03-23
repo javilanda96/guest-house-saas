@@ -22,6 +22,9 @@
     const params = new URLSearchParams(window.location.search);
     const convId = params.get("id");
 
+    // Almacen de borradores por alert.id para evitar problemas de escape en onclick
+    const _draftTexts = {};
+
     async function load() {
       if (!convId) {
         document.getElementById("content").innerHTML = '<p class="error">Falta ?id= en la URL</p>';
@@ -38,13 +41,49 @@
     }
 
     function renderHeader(data) {
+      const statusBadge = `<span class="badge ${statusClass(data.status)}">${statusLabel(data.status)}</span>`;
+      const ownerBadge  = `<span class="badge ${data.owner === 'host' ? 'badge-blue' : 'badge-gray'}">${data.owner}</span>`;
       document.getElementById("header").innerHTML = `
         <div class="conv-header">
           <div><span class="label">Conversation</span><br><span class="value">#${data.conversation_id}</span></div>
           <div><span class="label">Telegram Chat</span><br><span class="value">${data.telegram_chat_id}</span></div>
           <div><span class="label">Mensajes</span><br><span class="value">${data.total}</span></div>
+          <div><span class="label">Estado</span><br>${statusBadge} ${ownerBadge}</div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <button class="btn-primary" onclick="takeConversation()">Tomar</button>
+            <button class="btn-success" onclick="resolveConversation()">Resolver</button>
+          </div>
           <div><a href="/">&larr; Volver</a></div>
         </div>`;
+    }
+
+    async function takeConversation() {
+      try {
+        await API.patch(`/api/conversations/${convId}/owner`, { owner: "host" });
+        load();
+      } catch (e) {
+        alert("Error al tomar la conversacion: " + e.message);
+      }
+    }
+
+    async function resolveConversation() {
+      try {
+        await API.patch(`/api/conversations/${convId}/status`, { status: "bot_resolved" });
+        load();
+      } catch (e) {
+        alert("Error al resolver la conversacion: " + e.message);
+      }
+    }
+
+    function copyDraft(alertId, btn) {
+      const text = _draftTexts[alertId] || "";
+      navigator.clipboard.writeText(text).then(() => {
+        btn.textContent = "✓ Copiado";
+        btn.disabled = true;
+        setTimeout(() => { btn.textContent = "Copiar"; btn.disabled = false; }, 2000);
+      }).catch(() => {
+        alert("No se pudo copiar automaticamente. Selecciona el texto manualmente.");
+      });
     }
 
     function renderMessages(msgs) {
@@ -75,6 +114,7 @@
         // Render inline alerts attached to this interaction
         if (m.alerts && m.alerts.length) {
           for (const a of m.alerts) {
+            if (a.draft_text) _draftTexts[a.id] = a.draft_text;
             const resolved = a.resolved;
             const statusBadge = resolved
               ? '<span class="badge badge-green">resuelta</span>'
@@ -102,6 +142,8 @@
               ${a.draft_text ? `<div class="alert-inline-field">
                 <span class="alert-inline-label">Borrador sugerido</span>
                 <div class="alert-inline-draft">${esc(a.draft_text)}</div>
+                <button class="btn-primary" style="margin-top:6px;font-size:12px;"
+                  onclick="copyDraft(${a.id}, this)">Copiar</button>
               </div>` : ""}
               ${resolveBtn ? `<div class="alert-inline-actions">${resolveBtn}</div>` : ""}
             </div>`;
