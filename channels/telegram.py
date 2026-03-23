@@ -25,6 +25,10 @@ class TelegramChannel(BaseChannel):
         self.token = token
         self.http_timeout = http_timeout
 
+    def delete_webhook(self):
+        """Elimina el webhook activo si existe. Necesario antes de iniciar polling."""
+        tg_api(self.token, self.http_timeout, "deleteWebhook")
+
     def get_updates(self, poll_timeout, offset=None):
         return get_updates(
             self.token,

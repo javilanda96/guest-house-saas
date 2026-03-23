@@ -164,6 +164,16 @@ def main() -> None:
     print("SAFE -> responde. SENSITIVE -> alerta + acuse. UNKNOWN -> pide aclaración.")
     print("Ctrl+C para parar.\n")
 
+    # Eliminar webhook activo antes de iniciar polling.
+    # Telegram devuelve 409 Conflict si hay un webhook registrado y se llama
+    # a getUpdates al mismo tiempo. Este cleanup garantiza que el bot arranca
+    # en modo polling limpio independientemente del estado previo del token.
+    try:
+        channel.delete_webhook()
+        print("[bot] deleteWebhook: ok")
+    except Exception as e:
+        print(f"[bot] deleteWebhook: advertencia — {e}")
+
     last_update_id: Optional[int] = None
     _error_delay = 2
 
