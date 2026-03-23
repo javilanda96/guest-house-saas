@@ -1,6 +1,6 @@
 # Roadmap
 
-Última actualización: 2026-03-12
+Última actualización: 2026-03-23
 
 ## Estructura de milestones
 
@@ -10,6 +10,20 @@ Estimaciones de tamaño:
 - **Pequeño** = 1-2 archivos modificados, < 1 sesión de trabajo concentrado
 - **Medio** = 3-5 archivos modificados, 1-2 sesiones
 - **Grande** = 5+ archivos modificados o refactoring significativo, 2+ sesiones
+
+---
+
+## Enfoque actual
+
+Antes de construir más features, hay tres milestones que desbloquean un piloto real:
+
+1. **1A: PostgreSQL** — Sin persistencia real, el sistema es una demo desplegada, no un producto. Cada redespliegue borra el historial completo.
+2. **1B: Autenticación del panel** — La URL del panel es pública. Mostrar datos de huéspedes sin protección no es un pendiente técnico, es un bloqueo legal y de confianza.
+3. **2C: Contexto dinámico de propiedad** — Rompe la rigidez "un bot = una propiedad fija configurada al arrancar". Sin esto, cualquier cambio en el conocimiento requiere un redespliegue.
+
+**Orden: 1A → 1B → 2C → piloto real con 1 cliente / 1 propiedad.**
+
+Las Fases 3-5 se construyen en función de lo que enseñe ese piloto, no por secuencia teórica.
 
 ---
 
@@ -36,7 +50,7 @@ Objetivo: Hacer el sistema suficientemente fiable para un piloto real.
 
 **Tamaño:** Medio
 **Objetivo:** Los datos persisten entre deploys y reinicios.
-**Por qué ahora:** Cada deploy en Render borra el archivo SQLite. Nada más importa hasta que los datos sobrevivan.
+**Por qué ahora:** Cada deploy en Render borra el archivo SQLite. Sin persistencia real, el sistema es una demo desplegada, no un producto. Nada más importa hasta que los datos sobrevivan.
 
 **Alcance:**
 - Añadir `psycopg2-binary` a requirements.txt
@@ -54,7 +68,7 @@ Objetivo: Hacer el sistema suficientemente fiable para un piloto real.
 
 **Tamaño:** Pequeño
 **Objetivo:** Los datos de huéspedes no son públicamente accesibles.
-**Por qué ahora:** La URL del panel es pública. Cualquiera puede leer todas las conversaciones. Es un problema legal y de confianza.
+**Por qué ahora:** La URL del panel es pública. Cualquiera con el enlace puede leer todas las conversaciones de huéspedes. Esto no es un pendiente técnico — es un bloqueo legal y de confianza antes de cualquier piloto real.
 
 **Alcance:**
 - Añadir variables de entorno `PANEL_PASSWORD` y `SECRET_KEY`.
@@ -111,7 +125,7 @@ Objetivo: Un anfitrión puede configurar su propiedad desde el panel en lugar de
 
 **Tamaño:** Grande (este es el refactor clave)
 **Objetivo:** `process_message()` carga el contexto de propiedad dinámicamente por conversación, no desde variables globales de inicio.
-**Por qué ahora:** Este es el muro entre "un bot por propiedad" y "un bot sirviendo muchas propiedades". Debe hacerse antes de que multi-propiedad entre en producción.
+**Por qué ahora:** Este milestone tiene dos efectos concretos más allá del multi-propiedad: el bot responde con el conocimiento actualizado en el panel sin necesitar un redespliegue, y el pipeline deja de estar acoplado a una sola propiedad configurada al arrancar. Es un cambio estratégico de producto — el muro entre "un bot = una propiedad fija" y un sistema que puede servir a un piloto real con flexibilidad operativa.
 
 **Alcance:**
 - Nueva función en `services/property_manager.py`: `get_property_context_from_db(property_id)` que lee de las tablas `properties` y `knowledge_entries`.
@@ -130,6 +144,8 @@ Objetivo: Un anfitrión puede configurar su propiedad desde el panel en lugar de
 ## Fase 3: Listo para piloto
 
 Objetivo: El sistema funciona de forma fiable para un anfitrión real con 1-3 propiedades.
+
+> Los milestones de esta fase son referencias de lo que puede construirse tras completar 1A, 1B y 2C. La prioridad real dentro de esta fase debe decidirse en función del aprendizaje del piloto, no implementarse automáticamente en secuencia.
 
 ### Milestone 3A: Monitorización del bot
 
@@ -355,4 +371,9 @@ Fase 0 (COMPLETADA)
 
 ## Próxima acción concreta
 
-**Milestone 1A: Migración a PostgreSQL.** Todo lo demás está bloqueado por los datos efímeros.
+**1A → 1B → 2C → piloto real.**
+
+- **Ahora: Milestone 1A** — migración a PostgreSQL. Sin esto, el sistema es una demo efímera.
+- **Después: Milestone 1B** — autenticación del panel. Requisito antes de compartir el panel con cualquier cliente real.
+- **Luego: Milestone 2C** — contexto dinámico de propiedad. Desbloquea el piloto sin la rigidez actual de redespliegue.
+- **Hito: piloto real** con 1 cliente y 1 propiedad. Las siguientes features se priorizan según lo que enseñe ese piloto.
