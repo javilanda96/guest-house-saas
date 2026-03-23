@@ -38,12 +38,14 @@ from services.database import (
     resolve_alert,
     update_conversation_status,
     update_conversation_owner,
+    VALID_CONV_STATUSES,
+    VALID_CONV_OWNERS,
+)
+from services.db_properties import (
     get_properties,
     get_property_detail,
     update_property_profile,
     update_knowledge_content,
-    VALID_CONV_STATUSES,
-    VALID_CONV_OWNERS,
     VALID_KNOWLEDGE_TOPICS,
 )
 from tools.seed_demo import seed_if_empty

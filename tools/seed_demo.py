@@ -18,7 +18,8 @@ Control por entorno:
 
 import os
 
-from services.database import init_db, _conn, _now, _USE_PG, upsert_property_from_dict
+from services.database import init_db, _conn, _now, _USE_PG
+from services.db_properties import upsert_property_from_dict
 
 _SEED_ENABLED = os.environ.get("SEED_DEMO", "").lower() in ("true", "1", "yes")
 
