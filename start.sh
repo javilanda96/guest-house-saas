@@ -7,7 +7,7 @@ set -e
 # solo la API activa — util para validar decay del heartbeat en produccion.
 _run_bot=$(echo "${RUN_BOT:-true}" | tr '[:upper:]' '[:lower:]')
 if [[ "$_run_bot" != "false" && "$_run_bot" != "0" && "$_run_bot" != "no" && "$_run_bot" != "off" ]]; then
-    python bot.py &
+    python -u bot.py &
 else
     echo "[start.sh] RUN_BOT=$RUN_BOT — bot loop deshabilitado, solo API"
 fi
