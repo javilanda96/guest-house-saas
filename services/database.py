@@ -318,8 +318,15 @@ _SCHEMA_PG = _render_schema("pg")
 def init_db() -> None:
     """Crea las tablas si no existen. Seguro de llamar multiples veces."""
     if _USE_PG:
+        # psycopg2.cursor.execute() no acepta multiples statements en una sola
+        # llamada (usa PQexecParams, que solo soporta un comando por llamada).
+        # _SCHEMA_PG contiene N tablas unidas por ";\n\n" — las ejecutamos
+        # individualmente para garantizar compatibilidad.
         with _conn() as conn:
-            conn.execute(_SCHEMA_PG)
+            for stmt in _SCHEMA_PG.split(";\n\n"):
+                stmt = stmt.strip()
+                if stmt:
+                    conn.execute(stmt.rstrip(";"))
         print("[DB] Inicializado: PostgreSQL")
     else:
         DB_PATH.parent.mkdir(parents=True, exist_ok=True)
