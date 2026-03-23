@@ -249,10 +249,9 @@ booking-bot-sandbox/
     api.py                  # FastAPI server
     bot.py                  # Telegram bot main loop
     config.py               # Centralized configuration (loaded at import time)
-    main.py                 # Legacy entry point
-    start.sh                # Render startup script
+    main.py                 # Legacy compatibility alias for bot.py (not used by start.sh)
+    start.sh                # Render startup script (runs bot.py + uvicorn)
     render.yaml             # Render blueprint
-    seed_demo.py            # Demo data seeder
     requirements.txt        # Python dependencies (full)
     requirements-api.txt    # Python dependencies (API-only, for reference)
     channels/
@@ -278,13 +277,12 @@ booking-bot-sandbox/
         alerts.html         # Alerts list
         css/style.css       # All styles
         js/api.js           # Shared JS utilities
+    tools/
+        seed_demo.py        # Demo data seeder (run via api.py on startup)
+        build_knowledge_base.py  # Support script: builds knowledge base from raw files
+    datasets/               # ML training data and dataset build scripts
     data/
-        bot.db              # SQLite database (created at runtime)
-    logs/
-        interactions.jsonl   # Interaction log
-        classifier.log       # Classification log
-        reply.log            # Reply log
-        alerts.log           # Alert log
+        bot.db              # SQLite database (created at runtime, not tracked)
     tests/
         test_classifier.py   # Classification accuracy tests
         classification_dataset.json

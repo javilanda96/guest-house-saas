@@ -1,15 +1,12 @@
 """
-Entrypoint principal del chatbot.
+Legacy compatibility alias — do not use as primary entrypoint.
 
-Este archivo es el punto de arranque del sistema. Su única función es
-iniciar el bot importando la función `main()` del módulo `bot.py`.
+The canonical way to start the bot is:
 
-Se utiliza para ejecutar el bot desde terminal con:
+    python bot.py
 
-    python main.py
-
-Mantener este archivo simple permite separar claramente el arranque del
-sistema de la lógica del bot.
+This file exists only for backward compatibility and delegates directly
+to bot.main(). It is not used by start.sh or render.yaml.
 """
 
 
