@@ -174,6 +174,7 @@ def main() -> None:
                 poll_timeout=POLL_TIMEOUT_SECONDS,
                 offset=offset,
             )
+            write_heartbeat()  # Milestone 3A: el proceso vive si llega aquí
 
             for update in updates:
                 last_update_id = update.get("update_id", last_update_id)
@@ -265,7 +266,6 @@ def main() -> None:
 
             time.sleep(POST_LOOP_SLEEP)
             _error_delay = 2  # reset tras iteración exitosa
-            write_heartbeat()  # Milestone 3A: pulso de vida para monitorización
 
         except KeyboardInterrupt:
             print("\nBot detenido.")

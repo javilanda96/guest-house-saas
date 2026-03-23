@@ -220,7 +220,7 @@ def health():
     }
 
 
-@app.get("/api/health/bot")
+@app.get("/api/bot-health")
 def bot_health():
     """
     Estado del proceso bot segun su ultimo heartbeat en DB.
@@ -230,6 +230,12 @@ def bot_health():
       stale    = 90–300 s
       down     = > 300 s o sin registro
     """
+    return get_bot_health()
+
+
+@app.get("/api/health/bot", include_in_schema=False)
+def bot_health_legacy():
+    """Legacy alias — usar /api/bot-health."""
     return get_bot_health()
 
 

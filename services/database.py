@@ -279,7 +279,7 @@ _TABLES: List[Dict[str, Any]] = [
     # ---------------------------------------------------
     # Milestone 3A: Bot heartbeat / health monitoring.
     # Composite PK (service_name, instance_id): no serial.
-    # bot.py escribe cada ciclo; /api/health/bot lee aqui.
+    # bot.py escribe tras get_updates(); /api/bot-health lee aqui.
     # meta: JSON serializado como TEXT (compat SQLite).
     # ---------------------------------------------------
     {

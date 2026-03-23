@@ -181,7 +181,7 @@
       const colors = { healthy: "#4caf50", stale: "#ff9800", down: "#e53935" };
       const labels = { healthy: "Bot activo", stale: "Bot lento", down: "Bot caído" };
       try {
-        const d = await API.get("/api/health/bot");
+        const d = await API.get("/api/bot-health");
         const h = d.health || "down";
         dot.style.color   = colors[h] || "#999";
         label.textContent = labels[h] || h;
