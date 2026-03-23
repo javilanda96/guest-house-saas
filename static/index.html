@@ -179,7 +179,7 @@
       const label = document.getElementById("bot-status-label");
       const badge = document.getElementById("bot-status-badge");
       const colors = { healthy: "#4caf50", stale: "#ff9800", down: "#e53935" };
-      const labels = { healthy: "Bot activo", stale: "Bot lento", down: "Bot caído" };
+      const labels = { healthy: "Bot activo", stale: "Bot sin señal reciente", down: "Bot sin señal" };
       try {
         const d = await API.get("/api/bot-health");
         const h = d.health || "down";
