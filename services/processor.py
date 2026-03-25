@@ -17,8 +17,10 @@ from services.openai_client import (
     ack_emergency_in_user_language,
     ack_in_user_language,
     classify_with_ai,
+    detect_language,
     ensure_reply_language,
     generate_reply,
+    translate_to_language,
     translate_to_spanish,
 )
 from services.routing import (
@@ -277,7 +279,13 @@ def handle_sensitive_case(
         else:
             _combined = _ESCALATION.strip()
         try:
-            reply_text_out = ensure_reply_language(client, text, _combined)
+            # ensure_reply_language no es fiable aquí: _combined mezcla el draft
+            # (ES) con la frase de escalado (EN), lingua detecta idioma mixto o
+            # devuelve es (dominante) y no traduce la parte inglesa.
+            # Solución: detectar idioma del guest directamente y traducir el
+            # texto combinado completo a ese idioma en una sola llamada.
+            _guest_lang = detect_language(text)
+            reply_text_out = translate_to_language(client, _combined, _guest_lang)
         except Exception:
             reply_text_out = _combined
 
