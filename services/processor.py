@@ -259,13 +259,31 @@ def handle_sensitive_case(
 
     status, owner, priority = get_operational_status(action)
 
+    # Para reply_and_alert: el huésped recibe las instrucciones del draft
+    # más una frase estándar que confirma que el equipo ha sido notificado.
+    # Reemplaza el ack genérico ("contact Ana") con contenido útil.
+    # alert_staff_urgent no entra aquí — sigue usando ack_text vía bot.py.
+    reply_text_out = None
+    if action == "reply_and_alert":
+        _ESCALATION = " If the issue continues, our team has been notified and will contact you shortly."
+        _valid_draft = draft if draft and not draft.startswith("(") else ""
+        if _valid_draft:
+            _sep = "" if _valid_draft.rstrip().endswith(".") else "."
+            _combined = _valid_draft.rstrip() + _sep + _ESCALATION
+        else:
+            _combined = _ESCALATION.strip()
+        try:
+            reply_text_out = ensure_reply_language(client, text, _combined)
+        except Exception:
+            reply_text_out = _combined
+
     return {
         "category": category,
         "action": action,
         "reason": reason,
         "urgent": urgent,
         "escalate": escalate,
-        "reply_text": None,
+        "reply_text": reply_text_out,
         "ack_text": ack_text,
         "translated_text": translated,
         "draft_text": draft,
