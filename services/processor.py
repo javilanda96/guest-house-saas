@@ -268,7 +268,7 @@ def handle_sensitive_case(
         _ESCALATION = " If the issue continues, our team has been notified and will contact you shortly."
         _valid_draft = draft if draft and not draft.startswith("(") else ""
         if _valid_draft:
-            _sep = "" if _valid_draft.rstrip().endswith(".") else "."
+            _sep = "" if _valid_draft.rstrip()[-1:] in {".", "!", "?"} else "."
             _combined = _valid_draft.rstrip() + _sep + _ESCALATION
         else:
             _combined = _ESCALATION.strip()
