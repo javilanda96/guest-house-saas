@@ -223,7 +223,11 @@ def handle_sensitive_case(
 
     log_alert(chat_id=chat_id, message=text)
 
-    draft_history = list(updated_history)
+    # Construir draft_history solo con el mensaje actual (+ system prompt si existe).
+    # Pasar el historial completo contamina la respuesta con incidencias anteriores
+    # del mismo chat — el modelo mezcla contextos de turnos previos.
+    _system = updated_history[:1] if updated_history and updated_history[0].get("role") == "system" else []
+    draft_history = _system + [{"role": "user", "content": text}]
     if knowledge_text:
         kb_guardrail = {
             "role": "system",
