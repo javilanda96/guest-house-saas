@@ -136,7 +136,7 @@ def build_alert_text(
     if urgent:
         # Alerta urgente: formato mínimo sin draft ni sugerencias.
         # El bot ya respondió al huésped — solo notificación operativa.
-        safe_bot = ack_text.strip() or "Ha respondido al huésped con instrucciones de seguridad."
+        safe_bot = "Ha enviado instrucciones de seguridad y llamada al 112."
         return (
             f"🚨 EMERGENCIA\n\n"
             f"Chat ID: {chat_id}\n\n"
