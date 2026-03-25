@@ -146,14 +146,17 @@ def build_alert_text(
         )
 
     safe_reason = reason or "(sin motivo)"
-    safe_draft = draft_text or "(sin borrador disponible)"
+    safe_ack = ack_text.strip() if ack_text else "(no disponible)"
+    safe_draft = draft_text or "(no disponible)"
     return (
-        f"🚨 ALERTA (SENSIBLE) — REVISAR\n\n"
+        f"⚠️ INCIDENCIA\n\n"
         f"Chat ID: {chat_id}\n"
         f"Motivo: {safe_reason}\n\n"
-        f"👤 Mensaje original:\n{safe_original}\n\n"
-        f"🌍 Traducción al español:\n{safe_translated}\n\n"
-        f"🤖 Borrador sugerido:\n{safe_draft}\n"
+        f"Mensaje:\n{safe_original}\n\n"
+        f"Traducción:\n{safe_translated}\n\n"
+        f"Bot:\nHa acusado recibo al huésped.\n\n"
+        f"Borrador (EN):\n{safe_ack}\n\n"
+        f"Borrador (ES):\n{safe_draft}\n"
     )
 
 
