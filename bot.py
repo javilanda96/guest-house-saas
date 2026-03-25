@@ -128,16 +128,27 @@ def build_alert_text(
     translated_text: str,
     draft_text: str,
     urgent: bool,
+    ack_text: str = "",
 ) -> str:
-    header = "🚨🚨 ALERTA URGENTE (SENSIBLE) — REVISAR YA" if urgent else "🚨 ALERTA (SENSIBLE) — REVISAR"
-
-    safe_reason = reason or "(sin motivo)"
     safe_original = original_text or "(sin texto)"
     safe_translated = translated_text or "(sin traducción disponible)"
-    safe_draft = draft_text or "(sin borrador disponible)"
 
+    if urgent:
+        # Alerta urgente: formato mínimo sin draft ni sugerencias.
+        # El bot ya respondió al huésped — solo notificación operativa.
+        safe_bot = ack_text.strip() or "Ha respondido al huésped con instrucciones de seguridad."
+        return (
+            f"🚨 EMERGENCIA\n\n"
+            f"Chat ID: {chat_id}\n\n"
+            f"Mensaje:\n{safe_original}\n\n"
+            f"Traducción:\n{safe_translated}\n\n"
+            f"Bot:\n{safe_bot}\n"
+        )
+
+    safe_reason = reason or "(sin motivo)"
+    safe_draft = draft_text or "(sin borrador disponible)"
     return (
-        f"{header}\n\n"
+        f"🚨 ALERTA (SENSIBLE) — REVISAR\n\n"
         f"Chat ID: {chat_id}\n"
         f"Motivo: {safe_reason}\n\n"
         f"👤 Mensaje original:\n{safe_original}\n\n"
@@ -267,6 +278,7 @@ def main() -> None:
                             translated_text=result["translated_text"],
                             draft_text=result["draft_text"],
                             urgent=urgent,
+                            ack_text=result.get("ack_text") or "",
                         )
                         for cid in ALERT_CHAT_IDS:
                             print(f"[alerts] enviando a destino={cid}")
