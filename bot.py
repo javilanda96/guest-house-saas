@@ -41,6 +41,7 @@ from config import (
 from services.processor import process_message
 from services.logger import log_interaction
 from services.database import init_db, persist_interaction, write_heartbeat
+from services.openai_client import detect_language
 
 
 validate_config()
@@ -133,6 +134,14 @@ def build_alert_text(
     safe_original = original_text or "(sin texto)"
     safe_translated = translated_text or "(sin traducción disponible)"
 
+    # Omitir bloque de traducción si el mensaje original ya está en español.
+    # Si la detección falla, detect_language devuelve "en" → se muestra la
+    # traducción como fallback seguro.
+    _orig_lang = detect_language(original_text or "")
+    _translation_block = (
+        f"Traducción:\n{safe_translated}\n\n" if _orig_lang != "es" else ""
+    )
+
     if urgent:
         # Alerta urgente: formato mínimo sin draft ni sugerencias.
         # El bot ya respondió al huésped — solo notificación operativa.
@@ -141,7 +150,7 @@ def build_alert_text(
             f"🚨 EMERGENCIA\n\n"
             f"Chat ID: {chat_id}\n\n"
             f"Mensaje:\n{safe_original}\n\n"
-            f"Traducción:\n{safe_translated}\n\n"
+            f"{_translation_block}"
             f"Bot:\n{safe_bot}\n"
         )
 
@@ -151,7 +160,7 @@ def build_alert_text(
         f"Chat ID: {chat_id}\n"
         f"Motivo: {safe_reason}\n\n"
         f"Mensaje:\n{safe_original}\n\n"
-        f"Traducción:\n{safe_translated}\n\n"
+        f"{_translation_block}"
         f"Bot:\nHa enviado instrucciones básicas al huésped y ha derivado la incidencia.\n"
     )
 
