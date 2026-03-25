@@ -266,8 +266,11 @@ def main() -> None:
                     continue
 
                 if action in {"reply_and_alert", "alert_staff_urgent"}:
+                    # urgent para la alerta se deriva de la acción, no del flag del procesador.
+                    # alert_staff_urgent siempre es urgente independientemente de cómo llegó.
+                    alert_urgent = action == "alert_staff_urgent"
                     print(
-                        f"[alerts] accion={action} urgent={urgent} "
+                        f"[alerts] accion={action} urgent={alert_urgent} "
                         f"destinos={len(ALERT_CHAT_IDS)} chat_id_origen={chat_id}"
                     )
                     if ALERT_CHAT_IDS:
@@ -277,7 +280,7 @@ def main() -> None:
                             original_text=text,
                             translated_text=result["translated_text"],
                             draft_text=result["draft_text"],
-                            urgent=urgent,
+                            urgent=alert_urgent,
                             ack_text=result.get("ack_text") or "",
                         )
                         for cid in ALERT_CHAT_IDS:
