@@ -146,7 +146,6 @@ def build_alert_text(
         )
 
     safe_reason = reason or "(sin motivo)"
-    safe_ack = ack_text.strip() if ack_text else "(no disponible)"
     safe_draft = draft_text or "(no disponible)"
     return (
         f"⚠️ INCIDENCIA\n\n"
@@ -154,9 +153,8 @@ def build_alert_text(
         f"Motivo: {safe_reason}\n\n"
         f"Mensaje:\n{safe_original}\n\n"
         f"Traducción:\n{safe_translated}\n\n"
-        f"Bot:\nHa acusado recibo al huésped.\n\n"
-        f"Borrador (EN):\n{safe_ack}\n\n"
-        f"Borrador (ES):\n{safe_draft}\n"
+        f"Bot:\nHa acusado recibo al huésped y ha derivado la incidencia.\n\n"
+        f"Borrador interno (ES):\n{safe_draft}\n"
     )
 
 
