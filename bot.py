@@ -146,15 +146,13 @@ def build_alert_text(
         )
 
     safe_reason = reason or "(sin motivo)"
-    safe_draft = draft_text or "(no disponible)"
     return (
         f"⚠️ INCIDENCIA\n\n"
         f"Chat ID: {chat_id}\n"
         f"Motivo: {safe_reason}\n\n"
         f"Mensaje:\n{safe_original}\n\n"
         f"Traducción:\n{safe_translated}\n\n"
-        f"Bot:\nHa acusado recibo al huésped y ha derivado la incidencia.\n\n"
-        f"Borrador interno (ES):\n{safe_draft}\n"
+        f"Bot:\nHa enviado instrucciones básicas al huésped y ha derivado la incidencia.\n"
     )
 
 
