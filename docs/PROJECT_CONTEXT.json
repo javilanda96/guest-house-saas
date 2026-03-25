@@ -1,0 +1,270 @@
+{
+  "meta": {
+    "generated_at": "2026-03-25",
+    "purpose": "Machine-readable project context for LLM onboarding. Describes current state, architecture, milestones, and constraints so a new LLM session can operate without prior conversation history.",
+    "repo": "javilanda96/guest-house-saas",
+    "language": "es"
+  },
+
+  "product": {
+    "name": "Booking Bot",
+    "description": "Asistente de mensajería para huéspedes de alojamientos turísticos. Clasifica mensajes entrantes via IA, responde automáticamente a preguntas frecuentes, escala incidencias/emergencias al anfitrión, y expone un panel de administración web para gestión operativa.",
+    "long_term_goal": "SaaS multi-propiedad comercialmente viable para gestores de alojamientos turísticos.",
+    "immediate_goal": "Validar el sistema como servicio real en 1 propiedad (piloto Emilia's Cabin, Guardamar del Segura).",
+    "strategic_decision": "No añadir más features ahora. El foco es validación de uso real con el piloto.",
+    "target_user": "Anfitriones/gestores de alojamientos turísticos que reciben mensajes de huéspedes via Telegram."
+  },
+
+  "pilot_property": {
+    "client_id": "cliente_demo",
+    "property_id": "emilias_cabin",
+    "property_name": "Emilia's Cabin",
+    "contact_name": "Ana",
+    "contact_phone": "+34 607 305 040",
+    "city": "Guardamar del Segura",
+    "country": "España",
+    "default_language": "en",
+    "knowledge_base_files": [
+      "knowledge/clients/cliente_demo/properties/emilias_cabin/knowledge_base/faq.txt",
+      "knowledge/clients/cliente_demo/properties/emilias_cabin/knowledge_base/checkin.txt",
+      "knowledge/clients/cliente_demo/properties/emilias_cabin/knowledge_base/house_rules.txt",
+      "knowledge/clients/cliente_demo/properties/emilias_cabin/knowledge_base/emergencies.txt",
+      "knowledge/clients/cliente_demo/properties/emilias_cabin/knowledge_base/local_tips.txt",
+      "knowledge/clients/cliente_demo/properties/emilias_cabin/knowledge_base/host_notes.txt"
+    ],
+    "kb_status": "Completa y con datos reales de la propiedad. Cargada desde filesystem al arrancar, cacheada en memoria. Requiere redeploy para actualizar contenido."
+  },
+
+  "architecture": {
+    "deployment": "Render.com — un único servicio web",
+    "startup": "bash start.sh → python -u bot.py & (background) + exec uvicorn api:app (foreground)",
+    "bot_control": "RUN_BOT env var (default: true). RUN_BOT=false arranca solo la API, sin bot polling.",
+    "database": "PostgreSQL via Supabase (Session Pooler). Configurado via DATABASE_URL en Render. SQLite como fallback local si DATABASE_URL no está definida.",
+    "schema_tables": [
+      "conversations",
+      "interactions",
+      "alerts",
+      "properties",
+      "knowledge_entries",
+      "bot_heartbeats"
+    ],
+    "api_framework": "FastAPI + uvicorn",
+    "telegram_client": "polling via httpx (no webhook activo)",
+    "ai_model": "gpt-4.1-mini (OpenAI Responses API)",
+    "main_entrypoints": {
+      "bot": "bot.py",
+      "api": "api.py",
+      "startup": "start.sh",
+      "render_config": "render.yaml"
+    },
+    "key_services": {
+      "services/processor.py": "Orquestador principal del pipeline de mensajes",
+      "services/database.py": "Capa de persistencia dual SQLite/PostgreSQL",
+      "services/db_properties.py": "Gestión de propiedades y knowledge base en DB",
+      "services/openai_client.py": "Todas las llamadas a OpenAI (clasificación, respuesta, traducción, ack)",
+      "services/routing.py": "Keywords urgentes, routing de KB, detección de saludos/ambigüedad",
+      "services/property_manager.py": "Carga de contexto de propiedad desde filesystem",
+      "config.py": "Configuración centralizada, carga de KB y prompts al arrancar"
+    },
+    "static_panel": {
+      "inbox": "static/index.html — bandeja de entrada con tabs: Necesita atención / Todas / Resueltas",
+      "conversation_detail": "static/conversation.html — timeline, alertas inline, controles Tomar/Resolver/Copiar borrador",
+      "alerts": "static/alerts.html — lista de alertas del sistema",
+      "properties": "static/properties.html — gestión de propiedades",
+      "login": "static/login.html — página de login custom (estilo Emilia's Cabin)",
+      "api_helpers": "static/js/api.js — helpers API, statusClass(), statusLabel(), fmtDate(), esc()"
+    }
+  },
+
+  "message_pipeline": {
+    "steps": [
+      "1. bot.py recibe update de Telegram via polling",
+      "2. is_urgent() — keywords de urgencia -> override a emergency",
+      "3. is_greeting() — saludos exactos -> handle_greeting() directo",
+      "4. classify_with_ai() — clasifica en: faq, operational, incident, emergency, complaint, ambiguous",
+      "5. determine_action() -> reply_guest | reply_and_alert | alert_staff_urgent | ask_clarification",
+      "6. choose_kb_key() -> selecciona archivo KB relevante según categoría y texto",
+      "7. Handler correspondiente genera reply/ack/draft",
+      "8. persist_interaction() -> guarda en DB",
+      "9. bot.py envía respuesta al huésped si hay reply_text o ack_text"
+    ],
+    "action_to_status_mapping": {
+      "reply_guest": { "status": "bot_resolved", "owner": "bot", "priority": "normal" },
+      "reply_and_alert": { "status": "host_pending", "owner": "host", "priority": "normal" },
+      "alert_staff_urgent": { "status": "urgent", "owner": "host", "priority": "high" },
+      "ask_clarification": { "status": "open", "owner": "bot", "priority": "normal" }
+    },
+    "escalation_ack_behavior": {
+      "reply_and_alert": "ack_in_user_language() — mensaje corto derivando al anfitrión",
+      "alert_staff_urgent": "ack_emergency_in_user_language() — mensaje safety-first: servicios de emergencia (112) primero, luego Ana"
+    },
+    "kb_routing": {
+      "incident/emergency/complaint": "emergencies.txt",
+      "checkin keywords": "checkin.txt",
+      "house rules keywords": "house_rules.txt",
+      "local tips keywords": "local_tips.txt",
+      "ambiguous/faq default": "faq.txt"
+    },
+    "known_limitations": [
+      "is_greeting() solo hace match exacto de token único: 'hola', 'hi', 'hello', 'hey' etc. — 'hola buenas' cae en clasificación AI",
+      "is_urgent() es substring de keywords exactas — 'huele a gas' sin 'fuga de gas' exacto podría no disparar urgencia via keyword (aunque el AI classifier probablemente lo clasifique como emergency)",
+      "KB cacheada en memoria al arrancar — cambios en archivos requieren redeploy",
+      "default_language='en' en property.json — el bot responde en el idioma del huésped via ensure_reply_language(), no en el default"
+    ]
+  },
+
+  "auth": {
+    "mechanism": "Cookie de sesión HMAC-firmada (stateless, sin DB de sesiones)",
+    "protected_routes": "Todo excepto /login, /logout, /api/health",
+    "env_vars_required": ["PANEL_PASSWORD", "SECRET_KEY"],
+    "login_page": "static/login.html",
+    "logout_endpoint": "GET /logout",
+    "frontend_401_handling": "api.js redirige a /login en cualquier respuesta 401"
+  },
+
+  "env_vars": {
+    "required_production": [
+      "OPENAI_API_KEY",
+      "TELEGRAM_BOT_TOKEN",
+      "DATABASE_URL",
+      "PANEL_PASSWORD",
+      "SECRET_KEY",
+      "TELEGRAM_ALERT_CHAT_IDS"
+    ],
+    "optional": [
+      "RUN_BOT (default: true — poner false para deshabilitar bot loop)",
+      "CLIENT_ID (default: cliente_demo)",
+      "PROPERTY_ID (default: emilias_cabin)",
+      "PORT (inyectado por Render)"
+    ],
+    "notes": {
+      "TELEGRAM_ALERT_CHAT_IDS": "Lista separada por comas de chat IDs de Telegram que reciben alertas de escalación. Si está vacío, las escalaciones se persisten en DB pero no hay notificación Telegram.",
+      "DATABASE_URL": "Inyectado automáticamente por Render al adjuntar la instancia PostgreSQL de Supabase.",
+      "RUN_BOT": "Útil para validar heartbeat decay: con RUN_BOT=false la API sigue activa pero el bot no hace polling ni escribe heartbeats."
+    }
+  },
+
+  "milestones": {
+    "1A_postgresql": {
+      "status": "CLOSED",
+      "description": "Migración a PostgreSQL. Datos persisten entre deploys.",
+      "key_change": "init_db() ejecuta cada CREATE TABLE individualmente para compatibilidad con psycopg2",
+      "validated": true
+    },
+    "1B_auth_login": {
+      "status": "CLOSED",
+      "description": "Sustitución de HTTP Basic Auth por página de login custom con cookie HMAC-firmada.",
+      "validated_in_production": true,
+      "note": "python-multipart añadido a requirements.txt (requerido por Form() en POST /login)"
+    },
+    "3A_heartbeat": {
+      "status": "CLOSED",
+      "description": "Bot heartbeat persistido en DB. Endpoint GET /api/bot-health. Badge en panel.",
+      "health_thresholds": {
+        "healthy": "último heartbeat < 90s",
+        "stale": "90s a 300s",
+        "down": "> 300s o sin heartbeat"
+      },
+      "ui_labels": {
+        "healthy": "Bot activo",
+        "stale": "Bot sin señal reciente",
+        "down": "Bot sin señal"
+      },
+      "endpoint": "GET /api/bot-health",
+      "table": "bot_heartbeats"
+    },
+    "3B_human_handoff": {
+      "status": "CLOSED",
+      "description": "Controles de handoff operativo desde el panel de conversación.",
+      "features": [
+        "Botón Tomar: PATCH /api/conversations/{id}/owner → owner=host",
+        "Botón Resolver: PATCH /api/conversations/{id}/status → status=bot_resolved",
+        "Botón Copiar junto a draft_text (Clipboard API, fallback alert)",
+        "Header de conversación muestra status y owner actuales como badges"
+      ],
+      "backend_change": "get_conversation_interactions() expone status y owner en la respuesta"
+    },
+    "4A_pilot_readiness": {
+      "status": "IN PROGRESS",
+      "description": "Checklist de validación manual para piloto real con 1 propiedad.",
+      "test_matrix_results": {
+        "FAQ-01_wifi": "PASS",
+        "INC-01_incidente": "PASS",
+        "COM-01_queja": "PASS",
+        "EMR-01_emergencia": "FAIL → fixed → pending re-test",
+        "HOF_resolver": "PASS",
+        "HOF_tomar": "no validado"
+      },
+      "blocking_bug_fixed": {
+        "id": "EMR-01",
+        "problem": "Para emergencias reales (smoke/fire/gas) el bot respondía solo 'contact Ana directly' sin instrucciones de seguridad",
+        "root_cause": "ack_in_user_language() usaba el mismo prompt para incident/complaint y alert_staff_urgent",
+        "fix": "Nueva función ack_emergency_in_user_language() con prompt safety-first. Usada en processor.py cuando action=alert_staff_urgent.",
+        "status": "Implementado y pusheado. Pendiente re-test manual en producción."
+      }
+    }
+  },
+
+  "milestones_roadmap": {
+    "next_recommended_sequence": "1A → 1B → 2C → piloto real",
+    "pre_pilot_pending": [
+      "Re-test EMR-01 en producción",
+      "Validar HOF-Tomar manualmente",
+      "Confirmar TELEGRAM_ALERT_CHAT_IDS apunta al chat real del anfitrión",
+      "Verificar default_language en property.json es correcto para el piloto",
+      "Confirmar bot heartbeat badge muestra 'Bot activo' tras deploy limpio"
+    ],
+    "post_pilot_candidates": [
+      "2A: Datos de propiedad en base de datos",
+      "2B: Panel editor de propiedades",
+      "2C: Contexto dinámico de propiedad (rompe rigidez un-bot=una-propiedad)",
+      "3C: Mensajes iniciados por operador desde panel",
+      "3D: Alertas por email para urgencias"
+    ],
+    "premature_now": [
+      "Multi-propiedad / multi-token",
+      "WhatsApp / otros canales",
+      "Dashboard de analítica",
+      "RBAC / múltiples usuarios",
+      "Integración PMS/iCal",
+      "App móvil nativa"
+    ]
+  },
+
+  "observability": {
+    "bot_stdout": "Visible en Render logs gracias a python -u bot.py & en start.sh",
+    "config_startup_log": "[config] TELEGRAM_ALERT_CHAT_IDS: N destino(s) configurado(s) — o WARNING si vacío",
+    "alert_dispatch_logs": "bot.py loguea action, destinos, chat_id del huésped, resultado de cada envío Telegram",
+    "heartbeat": "GET /api/bot-health devuelve status healthy/stale/down con segundos desde último heartbeat",
+    "api_health": "GET /api/health — siempre público, usado por Render para health checks"
+  },
+
+  "known_issues_and_decisions": [
+    "409 Conflict en Telegram: causa probable externa (instancia duplicada o webhook activo previo). El repo en sí no inicia múltiples instancias de polling. Mitigación: verificar no hay webhook activo (deleteWebhook) y no hay otro proceso con el mismo token.",
+    "default_language='en' en property.json: bot responde en idioma del huésped via ensure_reply_language(), pero debe confirmarse explícitamente antes del piloto.",
+    "KB cacheada: cambios en archivos KB no se reflejan hasta redeploy.",
+    "Copiar draft requiere HTTPS (navigator.clipboard): funciona en Render (HTTPS). En HTTP local el fallback muestra un alert().",
+    "bot_resolved se usa como estado de resolución manual (Resolver button) aunque semánticamente implica resolución por el bot. Aceptado como compromiso para el piloto. host_resolved no existe todavía."
+  ],
+
+  "constraints_for_llm": {
+    "DO_NOT": [
+      "Reescribir arquitectura completa",
+      "Introducir ORM (Alembic, SQLAlchemy)",
+      "Añadir nuevas dependencias sin justificación fuerte",
+      "Cambiar render.yaml salvo que sea estrictamente necesario",
+      "Tocar auth/login salvo bug crítico",
+      "Añadir features no relacionadas con el piloto actual",
+      "Hacer refactors amplios — solo cambios quirúrgicos",
+      "Cambiar esquema de DB sin actualizar _TABLES en database.py",
+      "Crear archivos de documentación o README sin que el usuario lo pida explícitamente"
+    ],
+    "ALWAYS": [
+      "Ejecutar python tests/test_database_compat.py después de cambios en database.py",
+      "Ejecutar python -c 'import api; print(ok)' para validar imports",
+      "Hacer commit con mensaje descriptivo en español y Co-Authored-By: Claude Sonnet 4.6",
+      "Mantener cambios mínimos y quirúrgicos",
+      "Documentar en español"
+    ]
+  }
+}
