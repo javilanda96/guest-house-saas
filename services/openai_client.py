@@ -292,7 +292,15 @@ def ack_emergency_in_user_language(client, user_text: str) -> str:
         )
         out = _safe_output_text(resp)
         out = out if out else fallback
-        return ensure_reply_language(client, user_text, out)
+        # ensure_reply_language usa _detect_confident que omite textos < 12 chars.
+        # Mensajes de emergencia cortos ("i smell gas" = 11 chars) no se detectan
+        # y el ack puede quedar en el idioma incorrecto.
+        # detect_language() no tiene umbral de longitud — es seguro para textos cortos.
+        guest_lang = detect_language(user_text)
+        reply_lang = _detect_confident(out)
+        if reply_lang is None or reply_lang != guest_lang:
+            out = translate_to_language(client, out, guest_lang)
+        return out
     except Exception:
         return fallback
 
