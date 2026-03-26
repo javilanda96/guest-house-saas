@@ -43,7 +43,7 @@
         const data = await API.get("/api/conversations?limit=200");
         allConvs = data.conversations;
         _lastFingerprint = JSON.stringify(allConvs);
-        allConvs.forEach(c => _prevConvMap.set(c.id, JSON.stringify(c)));
+        allConvs.forEach(c => _prevConvMap.set(c.id, c.message_count));
         sortConversations();
         renderTabs();
         renderList();
@@ -62,8 +62,8 @@
         if (fp === _lastFingerprint) return;
         _lastFingerprint = fp;
         data.conversations.forEach(c => {
-          if (JSON.stringify(c) !== _prevConvMap.get(c.id)) _unreadIds.add(c.id);
-          _prevConvMap.set(c.id, JSON.stringify(c));
+          if (c.message_count !== _prevConvMap.get(c.id)) _unreadIds.add(c.id);
+          _prevConvMap.set(c.id, c.message_count);
         });
         allConvs = data.conversations;
         sortConversations();
