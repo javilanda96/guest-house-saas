@@ -1,6 +1,6 @@
 # EMR-01 — fix: respuesta al huésped insuficiente en emergencias reales
 
-**Estado:** ABIERTO
+**Estado:** IMPLEMENTADO — pendiente re-test en producción
 **Prioridad:** Bloqueante (4A Pilot Readiness)
 **Milestone:** 4A — Pilot Readiness (1 property)
 **Fecha:** 2026-03-23
@@ -87,10 +87,10 @@ La respuesta al huésped en casos `alert_staff_urgent` viene del campo `ack_text
 
 ## Tareas
 
-1. [ ] Localizar dónde se genera `ack_text` para `alert_staff_urgent`
-2. [ ] Identificar por qué no incluye instrucciones de seguridad
-3. [ ] Aplicar parche mínimo (prompt o lógica condicional según `action` o `urgent`)
-4. [ ] Verificar que el alert al encargado sigue intacto
+1. [x] Localizar dónde se genera `ack_text` para `alert_staff_urgent`
+2. [x] Identificar por qué no incluye instrucciones de seguridad
+3. [x] Aplicar parche mínimo (prompt o lógica condicional según `action` o `urgent`)
+4. [x] Verificar que el alert al encargado sigue intacto
 5. [ ] Re-test manual del caso EMR-01
 6. [ ] Cerrar ticket y actualizar estado de 4A
 

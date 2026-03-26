@@ -1,3 +1,6 @@
+This document is a human-readable overview.
+The source of truth for the current system is PROJECT_CONTEXT.json.
+
 # Arquitectura
 
 Última actualización: 2026-03-12

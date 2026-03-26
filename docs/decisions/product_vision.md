@@ -28,7 +28,7 @@ Funcionando de extremo a extremo:
 - Las alertas aparecen inline en el timeline de conversación
 - El panel y el bot se despliegan juntos en Render
 
-Una sola propiedad, un solo canal, un solo usuario. Sin autenticación, sin persistencia entre deploys, sin soporte multi-propiedad.
+Una sola propiedad, un solo canal, un solo usuario. Autenticación por cookie HMAC implementada. Persistencia en PostgreSQL (Supabase). Sin soporte multi-propiedad.
 
 ## Módulos de la plataforma a largo plazo
 
@@ -89,7 +89,7 @@ Estas funcionalidades han sido consideradas y diferidas explícitamente:
 
 ## Decisiones arquitectónicas clave por delante
 
-1. **Migración a PostgreSQL** — necesaria para la persistencia de datos. SQLite es efímero en Render.
+1. **Migración a PostgreSQL** — necesaria para la persistencia de datos. SQLite es efímero en Render. *(COMPLETADA)*
 2. **Carga dinámica del contexto de propiedad** — actualmente `config.py` carga los datos de propiedad al arrancar. Para multi-propiedad, `process_message()` debe cargar el contexto de propiedad por conversación desde la base de datos. Este es el refactor más importante.
 3. **Generalización del contact ID de canal** — `telegram_chat_id` debe convertirse en `channel_contact_id` antes del soporte multicanal. Es más fácil renombrarlo pronto con menos datos.
 4. **Cola de mensajes salientes** — cuando el anfitrión envía mensajes desde el panel, deben pasar por una tabla de cola que bot.py recoja, en lugar de dar a la API acceso directo al canal.

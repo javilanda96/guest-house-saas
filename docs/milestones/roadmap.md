@@ -17,8 +17,8 @@ Estimaciones de tamaño:
 
 Antes de construir más features, hay tres milestones que desbloquean un piloto real:
 
-1. **1A: PostgreSQL** — Sin persistencia real, el sistema es una demo desplegada, no un producto. Cada redespliegue borra el historial completo.
-2. **1B: Autenticación del panel** — La URL del panel es pública. Mostrar datos de huéspedes sin protección no es un pendiente técnico, es un bloqueo legal y de confianza.
+1. **1A: PostgreSQL** — Sin persistencia real, el sistema es una demo desplegada, no un producto. Cada redespliegue borra el historial completo. *(COMPLETADA)*
+2. **1B: Autenticación del panel** — La URL del panel es pública. Mostrar datos de huéspedes sin protección no es un pendiente técnico, es un bloqueo legal y de confianza. *(COMPLETADA)*
 3. **2C: Contexto dinámico de propiedad** — Rompe la rigidez "un bot = una propiedad fija configurada al arrancar". Sin esto, cualquier cambio en el conocimiento requiere un redespliegue.
 
 **Orden: 1A → 1B → 2C → piloto real con 1 cliente / 1 propiedad.**
@@ -46,7 +46,7 @@ Qué se construyó:
 
 Objetivo: Hacer el sistema suficientemente fiable para un piloto real.
 
-### Milestone 1A: Migración a PostgreSQL
+### Milestone 1A: Migración a PostgreSQL (COMPLETADA)
 
 **Tamaño:** Medio
 **Objetivo:** Los datos persisten entre deploys y reinicios.
@@ -64,7 +64,7 @@ Objetivo: Hacer el sistema suficientemente fiable para un piloto real.
 **Riesgo:** Diferencias de dialecto SQL entre SQLite y PostgreSQL. Pequeño pero debe testearse.
 **Resultado demostrable:** Redesplegar el servicio. Todas las conversaciones siguen en el panel.
 
-### Milestone 1B: Autenticación del panel
+### Milestone 1B: Autenticación del panel (COMPLETADA)
 
 **Tamaño:** Pequeño
 **Objetivo:** Los datos de huéspedes no son públicamente accesibles.
@@ -147,7 +147,7 @@ Objetivo: El sistema funciona de forma fiable para un anfitrión real con 1-3 pr
 
 > Los milestones de esta fase son referencias de lo que puede construirse tras completar 1A, 1B y 2C. La prioridad real dentro de esta fase debe decidirse en función del aprendizaje del piloto, no implementarse automáticamente en secuencia.
 
-### Milestone 3A: Monitorización del bot
+### Milestone 3A: Monitorización del bot (COMPLETADA)
 
 **Tamaño:** Pequeño
 **Objetivo:** Detectar y recuperar automáticamente cuando bot.py se cae silenciosamente.
@@ -373,7 +373,7 @@ Fase 0 (COMPLETADA)
 
 **1A → 1B → 2C → piloto real.**
 
-- **Ahora: Milestone 1A** — migración a PostgreSQL. Sin esto, el sistema es una demo efímera.
-- **Después: Milestone 1B** — autenticación del panel. Requisito antes de compartir el panel con cualquier cliente real.
+- **Ahora: Milestone 1A** — migración a PostgreSQL. Sin esto, el sistema es una demo efímera. *(COMPLETADA)*
+- **Después: Milestone 1B** — autenticación del panel. Requisito antes de compartir el panel con cualquier cliente real. *(COMPLETADA)*
 - **Luego: Milestone 2C** — contexto dinámico de propiedad. Desbloquea el piloto sin la rigidez actual de redespliegue.
 - **Hito: piloto real** con 1 cliente y 1 propiedad. Las siguientes features se priorizan según lo que enseñe ese piloto.

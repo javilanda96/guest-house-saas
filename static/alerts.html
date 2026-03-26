@@ -16,8 +16,8 @@
   <h1>Alertas</h1>
 
   <div class="filters">
-    <button onclick="setFilter(null)" id="f-all" class="active">Todas</button>
-    <button onclick="setFilter('pending')" id="f-pending">Pendientes</button>
+    <button onclick="setFilter(null)" id="f-all">Todas</button>
+    <button onclick="setFilter('pending')" id="f-pending" class="active">Pendientes</button>
     <button onclick="setFilter('urgent')" id="f-urgent">Urgentes</button>
     <button onclick="setFilter('resolved')" id="f-resolved">Resueltas</button>
   </div>
@@ -29,7 +29,7 @@
 
   <script src="/static/js/api.js"></script>
   <script>
-    let currentFilter = null;
+    let currentFilter = "pending";
     let allAlerts = [];
 
     function setFilter(f) {
@@ -81,11 +81,9 @@
       let html = `<table>
         <thead><tr>
           <th>Propiedad</th>
-          <th>Chat ID</th>
           <th>Motivo</th>
           <th>Urgente</th>
           <th>Traduccion</th>
-          <th>Borrador</th>
           <th>Estado</th>
           <th>Fecha</th>
           <th>Accion</th>
@@ -106,13 +104,13 @@
 
         const prop = esc(fmtProperty(a.property_id));
 
+        const showTranslation = a.user_message && a.translated_text &&
+          a.user_message.trim().toLowerCase() !== a.translated_text.trim().toLowerCase();
         html += `<tr>
-          <td>${prop}</td>
-          <td><a href="/static/conversation.html?id=${a.conversation_id}">${a.telegram_chat_id}</a></td>
+          <td><a href="/static/conversation.html?id=${a.conversation_id}">${prop}</a></td>
           <td>${esc(a.reason || "-")}</td>
           <td>${urgBadge}</td>
-          <td>${esc(truncate(a.translated_text, 60))}</td>
-          <td>${esc(truncate(a.draft_text, 60))}</td>
+          <td>${showTranslation ? esc(truncate(a.translated_text, 60)) : "—"}</td>
           <td>${statusBadge}</td>
           <td>${timeAgo(a.created_at)}</td>
           <td>${action}</td>

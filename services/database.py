@@ -554,7 +554,7 @@ def get_conversation_interactions(
     """
     with _conn() as conn:
         conv = conn.execute(
-            "SELECT id, telegram_chat_id, status, owner FROM conversations WHERE id = ?",
+            "SELECT id, telegram_chat_id, status, owner, property_id FROM conversations WHERE id = ?",
             (conversation_id,),
         ).fetchone()
 
@@ -605,6 +605,7 @@ def get_conversation_interactions(
         "telegram_chat_id": conv["telegram_chat_id"],
         "status": conv["status"],
         "owner": conv["owner"],
+        "property_id": conv["property_id"],
         "messages": messages,
         "total": total,
         "limit": limit,
@@ -638,9 +639,11 @@ def get_alerts(
             SELECT
                 a.*,
                 c.telegram_chat_id,
-                c.property_id
+                c.property_id,
+                i.user_message
             FROM alerts a
             JOIN conversations c ON c.id = a.conversation_id
+            JOIN interactions i ON i.id = a.interaction_id
             {where}
             ORDER BY a.created_at DESC
             LIMIT ? OFFSET ?
