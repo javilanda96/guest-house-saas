@@ -21,6 +21,11 @@ from config import CLIENT_ID, PROPERTY_ID
 
 PROPERTY_BASE_PATH = Path(f"knowledge/clients/{CLIENT_ID}/properties/{PROPERTY_ID}")
 
+
+def build_property_path(client_id: str, property_id: str) -> Path:
+    """Devuelve el base path del knowledge base para una propiedad."""
+    return Path(f"knowledge/clients/{client_id}/properties/{property_id}")
+
 # =========================================================
 # Keyword lists
 # =========================================================

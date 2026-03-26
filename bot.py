@@ -40,8 +40,9 @@ from config import (
 )
 from services.processor import process_message
 from services.logger import log_interaction
-from services.database import init_db, persist_interaction, write_heartbeat
+from services.database import init_db, persist_interaction, write_heartbeat, get_property_id_for_chat
 from services.openai_client import detect_language
+from services.routing import build_property_path
 
 
 validate_config()
@@ -230,6 +231,7 @@ def main() -> None:
                 if handle_command(chat_id, cmd):
                     continue
 
+                _prop_id = get_property_id_for_chat(CLIENT_ID, chat_id) or PROPERTY_ID
                 result = process_message(
                     client=client,
                     chat_id=chat_id,
@@ -238,6 +240,7 @@ def main() -> None:
                     text=text,
                     max_history_messages=MAX_HISTORY_MESSAGES,
                     send_ack_on_sensitive=SEND_ACK_ON_SENSITIVE,
+                    property_base_path=build_property_path(CLIENT_ID, _prop_id),
                 )
                 log_interaction({
                     "chat_id": chat_id,

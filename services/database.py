@@ -503,6 +503,20 @@ def _rows_to_list(rows: list) -> list:
     return [dict(r) for r in rows]
 
 
+def get_property_id_for_chat(client_id: str, telegram_chat_id: int) -> Optional[str]:
+    """
+    Devuelve el property_id de la conversacion existente para un chat_id dado.
+    Devuelve None si no existe conversacion previa (chat nuevo).
+    """
+    with _conn() as conn:
+        row = conn.execute(
+            "SELECT property_id FROM conversations "
+            "WHERE client_id = ? AND telegram_chat_id = ? LIMIT 1",
+            (client_id, telegram_chat_id),
+        ).fetchone()
+    return row["property_id"] if row else None
+
+
 def get_conversations(*, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
     """
     Lista conversaciones con conteo de mensajes y ultima actividad.

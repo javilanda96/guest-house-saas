@@ -381,6 +381,7 @@ def process_message(
     text: str,
     max_history_messages: int,
     send_ack_on_sensitive: bool = True,
+    property_base_path=None,
 ) -> Dict:
     urgent = is_urgent(text)
 
@@ -405,7 +406,7 @@ def process_message(
 
     action, escalate = determine_action(category, urgent)
     kb_key = choose_kb_key(category, text)
-    knowledge_text = load_relevant_knowledge(PROPERTY_BASE_PATH, kb_key)
+    knowledge_text = load_relevant_knowledge(property_base_path or PROPERTY_BASE_PATH, kb_key)
 
     log_classification(text, category, action)
 
