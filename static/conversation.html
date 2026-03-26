@@ -195,6 +195,7 @@
       _pollConvInProgress = true;
       try {
         const data = await API.get(`/api/conversations/${convId}/interactions`);
+        renderHeader(data);
         if (data.total === _lastTotal) return;
         const wasNearBottom  = isNearBottom();
         const distFromBottom = document.documentElement.scrollHeight - window.scrollY;
