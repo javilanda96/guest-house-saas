@@ -30,17 +30,39 @@
     const STATUS_ORDER = { urgent: 0, host_pending: 1, open: 2, bot_resolved: 3 };
     let allConvs = [];
     let currentTab = "attention";
+    let _pollInProgress = false;
+    let _lastFingerprint = "";
 
     async function load() {
       try {
         const data = await API.get("/api/conversations?limit=200");
         allConvs = data.conversations;
+        _lastFingerprint = JSON.stringify(allConvs);
         sortConversations();
         renderTabs();
         renderList();
       } catch (e) {
         document.getElementById("content").innerHTML =
           `<p class="error">${esc(e.message)}</p>`;
+      }
+    }
+
+    async function pollInbox() {
+      if (_pollInProgress) return;
+      _pollInProgress = true;
+      try {
+        const data = await API.get("/api/conversations?limit=200");
+        const fp = JSON.stringify(data.conversations);
+        if (fp === _lastFingerprint) return;
+        _lastFingerprint = fp;
+        allConvs = data.conversations;
+        sortConversations();
+        renderTabs();
+        renderList();
+      } catch (_) {
+        // poll silencioso — errores transitorios no interrumpen la UI
+      } finally {
+        _pollInProgress = false;
       }
     }
 
@@ -155,7 +177,6 @@
               <span class="inbox-property">${prop}</span>
               <div class="inbox-badges">
                 <span class="badge ${statusClass(c.status)}">${statusLabel(c.status)}</span>
-                <span class="badge ${c.owner === 'host' ? 'badge-blue' : 'badge-gray'}">${c.owner}</span>
               </div>
               <span class="inbox-time">${t}</span>
             </div>
@@ -163,7 +184,6 @@
             <div class="inbox-row-bottom">
               <span class="inbox-msg-count">${c.message_count} mensaje${c.message_count !== 1 ? 's' : ''}</span>
               ${alertFlag}
-              <span style="margin-left:auto; font-size:11px; color:#bbb">Chat ${c.telegram_chat_id}</span>
             </div>
           </div>`;
       }
@@ -172,6 +192,7 @@
     }
 
     load();
+    setInterval(pollInbox, 15000);
 
     // Milestone 3A: bot heartbeat badge
     async function loadBotHealth() {
