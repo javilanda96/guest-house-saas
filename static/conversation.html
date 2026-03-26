@@ -5,6 +5,19 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Detalle - Booking Bot</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    #new-msg-indicator {
+      display: none; position: fixed; bottom: 24px; right: 24px;
+      background: #1a73e8; color: #fff; padding: 8px 14px;
+      border-radius: 20px; cursor: pointer; font-size: 13px;
+      box-shadow: 0 2px 6px rgba(0,0,0,.25); z-index: 100;
+    }
+    .new-msg-separator {
+      text-align: center; margin: 12px 0;
+      border-top: 1px solid #e0e0e0; padding-top: 6px;
+      font-size: 12px; color: #888;
+    }
+  </style>
 </head>
 <body>
   <nav>
@@ -16,6 +29,7 @@
   <h1>Detalle de conversacion</h1>
   <div id="header"></div>
   <div id="content"><p class="loading">Cargando...</p></div>
+  <div id="new-msg-indicator" onclick="scrollToBottom(); hideIndicator()">↓ Nuevos mensajes</div>
 
   <script src="/static/js/api.js"></script>
   <script>
@@ -33,6 +47,9 @@
       requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }));
     }
 
+    function showIndicator() { document.getElementById("new-msg-indicator").style.display = "block"; }
+    function hideIndicator() { document.getElementById("new-msg-indicator").style.display = "none"; }
+
     const ACTION_LABELS = {
       reply_guest:       "Bot respondió",
       reply_and_alert:   "Escalado",
@@ -49,6 +66,7 @@
 
       try {
         const data = await API.get(`/api/conversations/${convId}/interactions`);
+        hideIndicator();
         renderHeader(data);
         renderMessages(data.messages);
         _lastTotal = data.total;
@@ -96,14 +114,17 @@
       }
     }
 
-    function renderMessages(msgs) {
+    function renderMessages(msgs, newFrom = undefined) {
       if (!msgs.length) {
         document.getElementById("content").innerHTML = "<p>Sin interacciones.</p>";
         return;
       }
 
       let html = '<div class="message-list">';
-      for (const m of msgs) {
+      for (let i = 0; i < msgs.length; i++) {
+        const m = msgs[i];
+        if (newFrom !== undefined && i === newFrom)
+          html += '<div class="new-msg-separator">Mensajes nuevos</div>';
         const badges = [];
         if (m.urgent) badges.push('<span class="badge badge-red">urgente</span>');
         if (m.escalate) badges.push('<span class="badge badge-orange">escalado</span>');
@@ -175,9 +196,10 @@
       try {
         const data = await API.get(`/api/conversations/${convId}/interactions`);
         if (data.total === _lastTotal) return;
-        const wasNearBottom   = isNearBottom();
-        const distFromBottom  = document.documentElement.scrollHeight - window.scrollY;
-        renderMessages(data.messages);
+        const wasNearBottom  = isNearBottom();
+        const distFromBottom = document.documentElement.scrollHeight - window.scrollY;
+        const newFrom        = _lastTotal;
+        renderMessages(data.messages, wasNearBottom ? undefined : newFrom);
         _lastTotal = data.total;
         if (wasNearBottom) {
           scrollToBottom();
@@ -185,6 +207,7 @@
           requestAnimationFrame(() =>
             window.scrollTo({ top: document.documentElement.scrollHeight - distFromBottom, behavior: "auto" })
           );
+          showIndicator();
         }
       } catch (_) {
         // poll silencioso — errores transitorios no interrumpen la UI
@@ -192,6 +215,8 @@
         _pollConvInProgress = false;
       }
     }
+
+    window.addEventListener("scroll", () => { if (isNearBottom()) hideIndicator(); });
 
     load();
     setInterval(pollConversation, 15000);
