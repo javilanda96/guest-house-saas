@@ -183,7 +183,7 @@
           scrollToBottom();
         } else {
           requestAnimationFrame(() =>
-            window.scrollTo({ top: document.documentElement.scrollHeight - distFromBottom, behavior: "instant" })
+            window.scrollTo({ top: document.documentElement.scrollHeight - distFromBottom, behavior: "auto" })
           );
         }
       } catch (_) {
