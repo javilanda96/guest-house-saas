@@ -175,10 +175,17 @@
       try {
         const data = await API.get(`/api/conversations/${convId}/interactions`);
         if (data.total === _lastTotal) return;
-        const wasNearBottom = isNearBottom();
+        const wasNearBottom   = isNearBottom();
+        const distFromBottom  = document.documentElement.scrollHeight - window.scrollY;
         renderMessages(data.messages);
         _lastTotal = data.total;
-        if (wasNearBottom) scrollToBottom();
+        if (wasNearBottom) {
+          scrollToBottom();
+        } else {
+          requestAnimationFrame(() =>
+            window.scrollTo({ top: document.documentElement.scrollHeight - distFromBottom, behavior: "instant" })
+          );
+        }
       } catch (_) {
         // poll silencioso — errores transitorios no interrumpen la UI
       } finally {
