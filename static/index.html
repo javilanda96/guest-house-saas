@@ -35,15 +35,12 @@
     let currentTab = "attention";
     let _pollInProgress = false;
     let _lastFingerprint = "";
-    const _unreadIds   = new Set();
-    const _prevConvMap = new Map();
 
     async function load() {
       try {
         const data = await API.get("/api/conversations?limit=200");
         allConvs = data.conversations;
         _lastFingerprint = JSON.stringify(allConvs);
-        allConvs.forEach(c => _prevConvMap.set(c.id, c.message_count));
         sortConversations();
         renderTabs();
         renderList();
@@ -61,10 +58,6 @@
         const fp = JSON.stringify(data.conversations);
         if (fp === _lastFingerprint) return;
         _lastFingerprint = fp;
-        data.conversations.forEach(c => {
-          if (c.message_count !== _prevConvMap.get(c.id)) _unreadIds.add(c.id);
-          _prevConvMap.set(c.id, c.message_count);
-        });
         allConvs = data.conversations;
         sortConversations();
         renderTabs();
@@ -118,9 +111,9 @@
       const total = allConvs.length;
       const resolved = allConvs.filter(c => c.status === "bot_resolved").length;
 
-      const uAttn     = allConvs.filter(c => _unreadIds.has(c.id) && (c.status === "urgent" || c.status === "host_pending")).length;
-      const uAll      = allConvs.filter(c => _unreadIds.has(c.id)).length;
-      const uResolved = allConvs.filter(c => _unreadIds.has(c.id) && c.status === "bot_resolved").length;
+      const uAttn     = allConvs.filter(c => c.unread_count > 0 && (c.status === "urgent" || c.status === "host_pending")).length;
+      const uAll      = allConvs.filter(c => c.unread_count > 0).length;
+      const uResolved = allConvs.filter(c => c.unread_count > 0 && c.status === "bot_resolved").length;
 
       const attnBadge = attn > 0
         ? `<span class="count-badge count-badge-red">${attn}</span>`
@@ -188,7 +181,7 @@
           : "";
 
         html += `
-          <div class="inbox-card ${cardClass(c.status)}${_unreadIds.has(c.id) ? ' inbox-card-unread' : ''}"
+          <div class="inbox-card ${cardClass(c.status)}${c.unread_count > 0 ? ' inbox-card-unread' : ''}"
                onclick="openConv(${c.id})">
             <div class="inbox-row-top">
               <span class="inbox-property">${prop}</span>
@@ -209,8 +202,6 @@
     }
 
     function openConv(id) {
-      _unreadIds.delete(id);
-      renderTabs();
       location.href = `/static/conversation.html?id=${id}`;
     }
 

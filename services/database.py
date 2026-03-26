@@ -202,6 +202,7 @@ _TABLES: List[Dict[str, Any]] = [
             ("priority",           "TEXT NOT NULL DEFAULT 'normal'"),
             ("created_at",         "TEXT NOT NULL"),
             ("updated_at",         "TEXT NOT NULL"),
+            ("last_read_at",        "TEXT"),
         ],
         "constraints": [
             "UNIQUE(client_id, property_id, telegram_chat_id)",
@@ -334,6 +335,20 @@ _SCHEMA_SQLITE = _render_schema("sqlite")
 _SCHEMA_PG = _render_schema("pg")
 
 
+def _run_migrations() -> None:
+    """Aplica migraciones de columnas nuevas sobre tablas ya existentes."""
+    with _conn() as conn:
+        if _USE_PG:
+            conn.execute(
+                "ALTER TABLE conversations ADD COLUMN IF NOT EXISTS last_read_at TEXT"
+            )
+        else:
+            try:
+                conn.execute("ALTER TABLE conversations ADD COLUMN last_read_at TEXT")
+            except Exception:
+                pass  # columna ya existe
+
+
 def init_db() -> None:
     """Crea las tablas si no existen. Seguro de llamar multiples veces."""
     if _USE_PG:
@@ -357,6 +372,7 @@ def init_db() -> None:
         finally:
             raw.close()
         print(f"[DB] Inicializado: SQLite ({DB_PATH})")
+    _run_migrations()
 
 
 # =========================================================
@@ -517,6 +533,15 @@ def get_property_id_for_chat(client_id: str, telegram_chat_id: int) -> Optional[
     return row["property_id"] if row else None
 
 
+def mark_conversation_read(conversation_id: int) -> None:
+    """Actualiza last_read_at al momento actual para una conversación."""
+    with _conn() as conn:
+        conn.execute(
+            "UPDATE conversations SET last_read_at = ? WHERE id = ?",
+            (_now(), conversation_id),
+        )
+
+
 def get_conversations(*, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
     """
     Lista conversaciones con conteo de mensajes y ultima actividad.
@@ -534,7 +559,11 @@ def get_conversations(*, limit: int = 50, offset: int = 0) -> Dict[str, Any]:
                  ORDER BY created_at DESC LIMIT 1) AS last_user_message,
                 (SELECT COUNT(*) FROM alerts
                  WHERE conversation_id = c.id
-                   AND resolved_at IS NULL) AS pending_alerts
+                   AND resolved_at IS NULL) AS pending_alerts,
+                (SELECT COUNT(*) FROM interactions
+                 WHERE conversation_id = c.id
+                   AND (c.last_read_at IS NULL OR created_at > c.last_read_at)
+                ) AS unread_count
             FROM conversations c
             LEFT JOIN interactions i ON i.conversation_id = c.id
             GROUP BY c.id

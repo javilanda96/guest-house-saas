@@ -35,6 +35,7 @@ from services.database import (
     _USE_PG,
     init_db,
     get_conversations,
+    mark_conversation_read,
     get_conversation_interactions,
     get_alerts,
     resolve_alert,
@@ -370,6 +371,13 @@ def patch_conversation_status(
     if result is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     return result
+
+
+@app.patch("/api/conversations/{conversation_id}/read")
+def patch_conversation_read(conversation_id: int):
+    """Marca una conversación como leída (actualiza last_read_at)."""
+    mark_conversation_read(conversation_id)
+    return {"ok": True}
 
 
 @app.patch("/api/conversations/{conversation_id}/owner")

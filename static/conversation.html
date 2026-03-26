@@ -71,6 +71,7 @@
         renderMessages(data.messages);
         _lastTotal = data.total;
         scrollToBottom();
+        API.patch(`/api/conversations/${convId}/read`).catch(() => {});
       } catch (e) {
         document.getElementById("content").innerHTML = `<p class="error">${esc(e.message)}</p>`;
       }
