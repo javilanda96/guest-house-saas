@@ -22,8 +22,24 @@
     const params = new URLSearchParams(window.location.search);
     const convId = params.get("id");
 
-    // Almacen de borradores por alert.id para evitar problemas de escape en onclick
-    const _draftTexts = {};
+    let _lastTotal          = 0;
+    let _pollConvInProgress = false;
+
+    function isNearBottom() {
+      return (document.documentElement.scrollHeight - window.scrollY - window.innerHeight) < 150;
+    }
+
+    function scrollToBottom() {
+      requestAnimationFrame(() => window.scrollTo({ top: document.documentElement.scrollHeight, behavior: "smooth" }));
+    }
+
+    const ACTION_LABELS = {
+      reply_guest:       "Bot respondió",
+      reply_and_alert:   "Escalado",
+      escalate_host:     "Escalado",
+      alert_staff_urgent:"Emergencia",
+      ask_clarification: "Pidió aclaración",
+    };
 
     async function load() {
       if (!convId) {
@@ -35,6 +51,8 @@
         const data = await API.get(`/api/conversations/${convId}/interactions`);
         renderHeader(data);
         renderMessages(data.messages);
+        _lastTotal = data.total;
+        scrollToBottom();
       } catch (e) {
         document.getElementById("content").innerHTML = `<p class="error">${esc(e.message)}</p>`;
       }
@@ -43,15 +61,18 @@
     function renderHeader(data) {
       const statusBadge = `<span class="badge ${statusClass(data.status)}">${statusLabel(data.status)}</span>`;
       const ownerBadge  = `<span class="badge ${data.owner === 'host' ? 'badge-blue' : 'badge-gray'}">${data.owner}</span>`;
+      const propLabel = data.property_id
+        ? `<div><span class="label">Propiedad</span><br><span class="value">${fmtProperty(data.property_id)}</span></div>`
+        : "";
       document.getElementById("header").innerHTML = `
         <div class="conv-header">
-          <div><span class="label">Conversation</span><br><span class="value">#${data.conversation_id}</span></div>
+          ${propLabel}
           <div><span class="label">Telegram Chat</span><br><span class="value">${data.telegram_chat_id}</span></div>
           <div><span class="label">Mensajes</span><br><span class="value">${data.total}</span></div>
           <div><span class="label">Estado</span><br>${statusBadge} ${ownerBadge}</div>
           <div style="display:flex;gap:8px;align-items:center;">
             <button class="btn-primary" onclick="takeConversation()">Tomar</button>
-            <button class="btn-success" onclick="resolveConversation()">Resolver</button>
+            <button class="btn-success" onclick="resolveConversation()">Cerrar conversación</button>
           </div>
           <div><a href="/">&larr; Volver</a></div>
         </div>`;
@@ -75,17 +96,6 @@
       }
     }
 
-    function copyDraft(alertId, btn) {
-      const text = _draftTexts[alertId] || "";
-      navigator.clipboard.writeText(text).then(() => {
-        btn.textContent = "✓ Copiado";
-        btn.disabled = true;
-        setTimeout(() => { btn.textContent = "Copiar"; btn.disabled = false; }, 2000);
-      }).catch(() => {
-        alert("No se pudo copiar automaticamente. Selecciona el texto manualmente.");
-      });
-    }
-
     function renderMessages(msgs) {
       if (!msgs.length) {
         document.getElementById("content").innerHTML = "<p>Sin interacciones.</p>";
@@ -104,9 +114,7 @@
           <div class="user-msg">${esc(m.user_message)}</div>
           ${reply ? `<div class="bot-reply">${esc(reply)}</div>` : ""}
           <div class="meta">
-            <span class="badge ${statusClass(m.action === 'reply_guest' ? 'bot_resolved' : 'host_pending')}">${m.action}</span>
-            <span class="badge badge-gray">${m.category}</span>
-            ${badges.join(" ")}
+            <span class="badge ${statusClass(m.action === 'reply_guest' ? 'bot_resolved' : 'host_pending')}">${ACTION_LABELS[m.action] || esc(m.action)}</span>
             &middot; ${fmtDate(m.created_at)}
           </div>
         </div>`;
@@ -114,7 +122,6 @@
         // Render inline alerts attached to this interaction
         if (m.alerts && m.alerts.length) {
           for (const a of m.alerts) {
-            if (a.draft_text) _draftTexts[a.id] = a.draft_text;
             const resolved = a.resolved;
             const statusBadge = resolved
               ? '<span class="badge badge-green">resuelta</span>'
@@ -139,12 +146,6 @@
                 <span class="alert-inline-label">Traduccion</span>
                 <span>${esc(a.translated_text)}</span>
               </div>` : ""}
-              ${a.draft_text ? `<div class="alert-inline-field">
-                <span class="alert-inline-label">Borrador sugerido</span>
-                <div class="alert-inline-draft">${esc(a.draft_text)}</div>
-                <button class="btn-primary" style="margin-top:6px;font-size:12px;"
-                  onclick="copyDraft(${a.id}, this)">Copiar</button>
-              </div>` : ""}
               ${resolveBtn ? `<div class="alert-inline-actions">${resolveBtn}</div>` : ""}
             </div>`;
           }
@@ -167,7 +168,26 @@
       }
     }
 
+    async function pollConversation() {
+      if (_pollConvInProgress) return;
+      if (_lastTotal === 0) return;          // load() aún no ha terminado
+      _pollConvInProgress = true;
+      try {
+        const data = await API.get(`/api/conversations/${convId}/interactions`);
+        if (data.total === _lastTotal) return;
+        const wasNearBottom = isNearBottom();
+        renderMessages(data.messages);
+        _lastTotal = data.total;
+        if (wasNearBottom) scrollToBottom();
+      } catch (_) {
+        // poll silencioso — errores transitorios no interrumpen la UI
+      } finally {
+        _pollConvInProgress = false;
+      }
+    }
+
     load();
+    setInterval(pollConversation, 15000);
   </script>
 </body>
 </html>
