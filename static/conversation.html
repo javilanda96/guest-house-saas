@@ -33,8 +33,9 @@
 
   <script src="/static/js/api.js"></script>
   <script>
-    const params = new URLSearchParams(window.location.search);
-    const convId = params.get("id");
+    const params  = new URLSearchParams(window.location.search);
+    const convId  = params.get("id");
+    const _backUrl = params.get("tab") ? `/?tab=${params.get("tab")}` : "/";
 
     let _lastTotal          = 0;
     let _pollConvInProgress = false;
@@ -93,7 +94,7 @@
             <button class="btn-primary" onclick="takeConversation()">Tomar</button>
             <button class="btn-success" onclick="resolveConversation()">Cerrar conversación</button>
           </div>
-          <div><a href="/">&larr; Volver</a></div>
+          <div><a href="${_backUrl}">&larr; Volver</a></div>
         </div>`;
     }
 
