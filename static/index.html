@@ -180,9 +180,7 @@
         const alertFlag = c.pending_alerts > 0
           ? `<span class="inbox-alert-flag">&#9888; ${c.pending_alerts} alerta${c.pending_alerts > 1 ? 's' : ''}</span>`
           : "";
-        const unreadDot = c.unread_count > 0
-          ? `<span class="badge badge-blue">${c.unread_count} nuevo${c.unread_count > 1 ? 's' : ''}</span>`
-          : "";
+        const unreadDot = c.unread_count > 0 ? `<span class="badge badge-blue">Nuevo</span>` : "";
 
         html += `
           <div class="inbox-card ${cardClass(c.status)}${c.unread_count > 0 ? ' inbox-card-unread' : ''}"
