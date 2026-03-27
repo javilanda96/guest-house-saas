@@ -114,15 +114,11 @@
 
       const uAttn     = allConvs.filter(c => c.unread_count > 0 && (c.status === "urgent" || c.status === "host_pending")).length;
       const uAll      = allConvs.filter(c => c.unread_count > 0).length;
-      const uResolved = allConvs.filter(c => c.unread_count > 0 && c.status === "bot_resolved").length;
-
       const attnBadge = attn > 0
         ? `<span class="count-badge count-badge-red">${attn}</span>`
         : `<span class="count-badge">0</span>`;
       const uAttnBadge     = uAttn     > 0 ? ` <span class="count-badge count-badge-red">${uAttn} nuevo${uAttn > 1 ? 's' : ''}</span>` : "";
       const uAllBadge      = uAll      > 0 ? ` <span class="count-badge count-badge-red">${uAll} nuevo${uAll > 1 ? 's' : ''}</span>` : "";
-      const uResolvedBadge = uResolved > 0 ? ` <span class="count-badge count-badge-red">${uResolved} nuevo${uResolved > 1 ? 's' : ''}</span>` : "";
-
       document.getElementById("tabs").innerHTML = `
         <button onclick="switchTab('attention')"
                 class="${currentTab === 'attention' ? 'active' : ''}">
@@ -134,7 +130,7 @@
         </button>
         <button onclick="switchTab('resolved')"
                 class="${currentTab === 'resolved' ? 'active' : ''}">
-          Resueltas <span class="count-badge">${resolved}</span>${uResolvedBadge}
+          Resueltas <span class="count-badge">${resolved}</span>
         </button>
       `;
     }
